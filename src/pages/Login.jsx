@@ -5,6 +5,7 @@ import { toast } from 'react-hot-toast';
 import Footer from './Footer';
 
 const EMAIL_DOMAIN = 'maselite';
+const TEACHER_IMAGE = '/teacher.png';
 
 export default function Login() {
   // 'student' | 'signup' | 'teacher'
@@ -24,7 +25,7 @@ export default function Login() {
   const [partnerLabel, setPartnerLabel] = useState('');
   const [partnerName, setPartnerName] = useState('');
 
-  // 🕵️ عدّاد النقر السري على الشعار
+  // 🕵️ عداد النقر السري
   const [secretClicks, setSecretClicks] = useState(0);
 
   const navigate = useNavigate();
@@ -43,30 +44,36 @@ export default function Login() {
       });
   }, []);
 
-   // ============ بوابة المعلم السرية ============
+  // ============ بوابة المعلم السرية ============
   useEffect(() => {
-    // رابط مباشر: /login?teacher=1
     const params = new URLSearchParams(window.location.search);
+
     if (params.get('teacher') === '1') {
       setView('teacher');
     }
 
-    // اختصار لوحة المفاتيح: Ctrl + Shift + T
     const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+      if (
+        e.ctrlKey &&
+        e.shiftKey &&
+        e.key.toLowerCase() === 't'
+      ) {
         e.preventDefault();
         resetForm();
         setView('teacher');
         toast.success('🔓 تم فتح بوابة المعلم');
       }
     };
+
     window.addEventListener('keydown', handleKeyDown);
+
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // 🖱️ 5 نقرات متتالية على الشعار
+  // 🖱️ النقر السري على صورة المعلم
   const handleLogoClick = () => {
     const newCount = secretClicks + 1;
+
     setSecretClicks(newCount);
 
     if (newCount >= 5) {
@@ -108,27 +115,42 @@ export default function Login() {
   // ============================
   const handleStudentLogin = async (e) => {
     e.preventDefault();
+
     const id = studentId.trim();
 
-    if (!id) { toast.error('الرجاء إدخال رقم الهوية'); return; }
-    if (!/^\d+$/.test(id)) { toast.error('رقم الهوية يجب أن يتكون من أرقام فقط'); return; }
-    if (id.length !== 9) { toast.error('رقم الهوية يجب أن يكون 9 أرقام'); return; }
+    if (!id) {
+      toast.error('الرجاء إدخال رقم الهوية');
+      return;
+    }
+
+    if (!/^\d+$/.test(id)) {
+      toast.error('رقم الهوية يجب أن يتكون من أرقام فقط');
+      return;
+    }
+
+    if (id.length !== 9) {
+      toast.error('رقم الهوية يجب أن يكون 9 أرقام');
+      return;
+    }
 
     setLoading(true);
 
     try {
-      // التحقق من وجود الحساب
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, role')
         .eq('nationalID', id)
         .maybeSingle();
 
-      // إذا لم يكن مسجلاً → انتقل لصفحة التسجيل
       if (!profile) {
         setView('signup');
         setLoading(false);
-        toast('رقم الهوية غير مسجل. أكمل بياناتك لإنشاء حساب', { icon: '📝' });
+
+        toast(
+          'رقم الهوية غير مسجل. أكمل بياناتك لإنشاء حساب',
+          { icon: '📝' }
+        );
+
         return;
       }
 
@@ -138,12 +160,13 @@ export default function Login() {
         return;
       }
 
-      // تسجيل الدخول
       const email = `${id}@${EMAIL_DOMAIN}`;
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password: id,
-      });
+
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: id,
+        });
 
       if (error || !data.user) {
         toast.error('فشل تسجيل الدخول. تواصل مع الإدارة');
@@ -152,6 +175,7 @@ export default function Login() {
       }
 
       toast.success('تم تسجيل الدخول بنجاح');
+
       navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error(err);
@@ -161,35 +185,45 @@ export default function Login() {
   };
 
   // ============================
-  // 2) ⭐ إنشاء حساب طالب جديد
+  // 2) إنشاء حساب طالب جديد
   // ============================
   const handleStudentSignup = async (e) => {
     e.preventDefault();
+
     const id = studentId.trim();
 
-    // ============ التحقق من صحة البيانات ============
     if (!id) {
       toast.error('رقم الهوية مطلوب');
       return;
     }
+
     if (!/^\d{9}$/.test(id)) {
       toast.error('رقم الهوية يجب أن يكون 9 أرقام');
       return;
     }
-    if (!fullName.trim() || fullName.trim().split(/\s+/).length < 4) {
+
+    if (
+      !fullName.trim() ||
+      fullName.trim().split(/\s+/).length < 4
+    ) {
       toast.error('الرجاء إدخال الاسم الرباعي كاملاً');
       return;
     }
+
     if (!branch) {
       toast.error('الرجاء اختيار الفرع الدراسي');
       return;
     }
+
     if (!phone.trim()) {
       toast.error('الرجاء إدخال رقم الجوال');
       return;
     }
+
     if (!/^(059|056)\d{7}$/.test(phone.trim())) {
-      toast.error('رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)');
+      toast.error(
+        'رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)'
+      );
       return;
     }
 
@@ -198,7 +232,6 @@ export default function Login() {
     try {
       const email = `${id}@${EMAIL_DOMAIN}`;
 
-      // ============ 1) التحقق المسبق من عدم وجود الحساب ============
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
@@ -206,64 +239,81 @@ export default function Login() {
         .maybeSingle();
 
       if (existingProfile) {
-        toast.error('رقم الهوية مسجل مسبقاً. جرب تسجيل الدخول');
+        toast.error(
+          'رقم الهوية مسجل مسبقاً. جرب تسجيل الدخول'
+        );
+
         setView('student');
         setLoading(false);
         return;
       }
 
-      // ============ 2) إنشاء الحساب في auth ============
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email,
-        password: id,
-      });
+      const { data: signUpData, error: signUpError } =
+        await supabase.auth.signUp({
+          email,
+          password: id,
+        });
 
       if (signUpError) {
         if (
           signUpError.message?.includes('already') ||
           signUpError.message?.includes('duplicate')
         ) {
-          toast.error('هذا الحساب موجود بالفعل. جرب تسجيل الدخول');
+          toast.error(
+            'هذا الحساب موجود بالفعل. جرب تسجيل الدخول'
+          );
+
           setView('student');
           setLoading(false);
           return;
         }
+
         throw signUpError;
       }
 
       if (!signUpData.user) {
-        throw new Error('فشل إنشاء الحساب - لم يتم إنشاء المستخدم');
+        throw new Error(
+          'فشل إنشاء الحساب - لم يتم إنشاء المستخدم'
+        );
       }
 
-      // ============ 3) إنشاء الملف الشخصي ============
       const { error: profileError } = await supabase
         .from('profiles')
-        .insert([{
-          id: signUpData.user.id,
-          nationalID: id,
-          name: fullName.trim(),
-          role: 'student',
-          branch: branch,
-          phone: phone.trim(),
-        }]);
+        .insert([
+          {
+            id: signUpData.user.id,
+            nationalID: id,
+            name: fullName.trim(),
+            role: 'student',
+            branch: branch,
+            phone: phone.trim(),
+          },
+        ]);
 
       if (profileError) {
-        // لو فشل إنشاء الملف الشخصي، احذف الحساب من auth
         await supabase.auth.signOut();
-        throw new Error('فشل حفظ البيانات الشخصية: ' + profileError.message);
+
+        throw new Error(
+          'فشل حفظ البيانات الشخصية: ' +
+            profileError.message
+        );
       }
 
-      // ============ 4) نجاح ✅ ============
-      toast.success('تم إنشاء حسابك بنجاح! جاري تحويلك...');
-      
-      // التوجيه إلى /dashboard (التي ستعيد التوجيه إلى الاختبار أو تعرض رسالة)
+      toast.success(
+        'تم إنشاء حسابك بنجاح! جاري تحويلك...'
+      );
+
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 800);
-
     } catch (err) {
       console.error('Signup error:', err);
-      toast.error('فشل إنشاء الحساب: ' + (err.message || 'خطأ غير معروف'));
+
+      toast.error(
+        'فشل إنشاء الحساب: ' +
+          (err.message || 'خطأ غير معروف')
+      );
+
       setLoading(false);
     }
   };
@@ -273,27 +323,37 @@ export default function Login() {
   // ============================
   const handleTeacherLogin = async (e) => {
     e.preventDefault();
+
     const username = teacherUsername.trim();
     const password = teacherPassword;
 
     if (!username || !password) {
-      toast.error('الرجاء إدخال اسم المستخدم وكلمة المرور');
+      toast.error(
+        'الرجاء إدخال اسم المستخدم وكلمة المرور'
+      );
       return;
     }
 
     setLoading(true);
+
     const email = `${username}@${EMAIL_DOMAIN}`;
 
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (error || !data.user) {
-        toast.error('اسم المستخدم أو كلمة المرور غير صحيحة');
+        toast.error(
+          'اسم المستخدم أو كلمة المرور غير صحيحة'
+        );
+
         setLoading(false);
         return;
       }
 
-      // التحقق من الدور
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -302,201 +362,405 @@ export default function Login() {
 
       if (profile?.role !== 'teacher') {
         await supabase.auth.signOut();
-        toast.error('هذا الحساب غير مصرح له بالدخول كمعلم');
+
+        toast.error(
+          'هذا الحساب غير مصرح له بالدخول كمعلم'
+        );
+
         setLoading(false);
         return;
       }
 
       toast.success('مرحباً بك');
+
       navigate('/teacher', { replace: true });
     } catch (err) {
       console.error(err);
+
       toast.error('حدث خطأ غير متوقع');
+
       setLoading(false);
     }
   };
 
   return (
     <div className="auth-page-container">
-      {/* الشعار - انقر 5 مرات سريعاً لفتح بوابة المعلم */}
-      <div className="top-logo-container">
+
+      {/* ============================================================
+          HERO
+      ============================================================ */}
+      <section className="teacher-hero">
+
+        {/* الخلفية الدائرية */}
+        <div className="hero-glow hero-glow-one"></div>
+        <div className="hero-glow hero-glow-two"></div>
+
+        {/* النص */}
+        <div className="teacher-info">
+
+          <div className="teacher-name">
+            أ. محمد أبو سليمان
+          </div>
+
+          <div className="teacher-role">
+            English Teacher
+          </div>
+
+          <div className="teacher-line"></div>
+
+          <div className="teacher-motto">
+            Better English
+            <br />
+            <span>Bigger Dreams</span>
+          </div>
+
+        </div>
+
+        {/* صورة المعلم */}
         <div
-          className="premium-logo-wrapper"
+          className="teacher-image-wrapper"
           onClick={handleLogoClick}
-          style={{ cursor: 'default', userSelect: 'none' }}
+          title="English Teacher"
         >
+          <div className="number-shape">1</div>
+
           <img
-            src="https://i.imgur.com/ETr3K2d.png"
-            alt="النخبة"
-            className="premium-logo-img"
+            src={TEACHER_IMAGE}
+            alt="أ. محمد أبو سليمان"
+            className="teacher-image"
             draggable={false}
           />
         </div>
-      </div>
 
-      <div className="partner-text">
-        <div className="partner-label">{partnerLabel}</div>
-        <div className="partner-name">{partnerName}</div>
-      </div>
+      </section>
 
+
+      {/* ============================================================
+          PARTNER
+      ============================================================ */}
+      {(partnerLabel || partnerName) && (
+        <div className="partner-text">
+          {partnerLabel && (
+            <div className="partner-label">
+              {partnerLabel}
+            </div>
+          )}
+
+          {partnerName && (
+            <div className="partner-name">
+              {partnerName}
+            </div>
+          )}
+        </div>
+      )}
+
+
+      {/* ============================================================
+          AUTH CARD
+      ============================================================ */}
       <div className="auth-card">
 
-        {/* ============================================================ */}
-        {/* 1) شاشة تسجيل دخول الطالب                                    */}
-        {/* ============================================================ */}
+        {/* ============================================================
+            STUDENT LOGIN
+        ============================================================ */}
         {view === 'student' && (
           <>
-            <h1 className="auth-title">تسجيل الدخول</h1>
+            <div className="card-header">
 
-            <form onSubmit={handleStudentLogin} className="auth-form">
+              <div className="card-title">
+                تسجيل الدخول
+              </div>
+
+            </div>
+
+            <form
+              onSubmit={handleStudentLogin}
+              className="auth-form"
+            >
+
               <div className="input-group">
+
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
+
                   رقم الهوية
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="text"
                     value={studentId}
-                    onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                    onChange={(e) =>
+                      setStudentId(
+                        e.target.value.replace(/\s/g, '')
+                      )
+                    }
                     placeholder="أدخل رقم الهوية"
                     maxLength={9}
                     required
                     className="auth-input"
-                    style={{ direction: 'ltr', textAlign: 'right' }}
+                    style={{
+                      direction: 'ltr',
+                      textAlign: 'right',
+                    }}
                   />
                 </div>
+
               </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري التحميل...' : 'دخول الاختبار'}
+
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={loading}
+              >
+                {loading
+                  ? 'جاري التحميل...'
+                  : 'دخول الاختبار'}
               </button>
+
             </form>
 
             <div className="toggle-view">
-              <p>
-                ليس لديك حساب؟{' '}
-                <span onClick={goToSignup}>إنشاء حساب جديد</span>
-              </p>
+              <span className="toggle-muted">
+                ليس لديك حساب؟
+              </span>
+
+              <span
+                onClick={goToSignup}
+                className="toggle-link"
+              >
+                إنشاء حساب جديد
+              </span>
             </div>
           </>
         )}
 
-        {/* ============================================================ */}
-        {/* 2) ⭐ شاشة إنشاء حساب طالب جديد (كاملة)                       */}
-        {/* ============================================================ */}
+
+        {/* ============================================================
+            SIGN UP
+        ============================================================ */}
         {view === 'signup' && (
           <>
-            <h1 className="auth-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                width="22" height="22" style={{ verticalAlign: 'middle', marginLeft: '6px' }}>
-                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
-                <circle cx="8.5" cy="7" r="4"></circle>
-                <line x1="20" y1="8" x2="20" y2="14"></line>
-                <line x1="23" y1="11" x2="17" y2="11"></line>
-              </svg>
-              إنشاء حساب جديد
-            </h1>
+            <div className="card-header">
+              <div className="card-title">
+                إنشاء حساب جديد
+              </div>
 
-            <form onSubmit={handleStudentSignup} className="auth-form">
+              <div className="card-subtitle">
+                أدخل بياناتك للبدء في الاختبارات الإلكترونية
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleStudentSignup}
+              className="auth-form"
+            >
 
               {/* رقم الهوية */}
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
-                    <line x1="7" y1="9" x2="17" y2="9"></line>
-                    <line x1="7" y1="13" x2="17" y2="13"></line>
-                    <line x1="7" y1="17" x2="13" y2="17"></line>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect
+                      x="3"
+                      y="4"
+                      width="18"
+                      height="16"
+                      rx="2"
+                    />
+                    <line
+                      x1="7"
+                      y1="9"
+                      x2="17"
+                      y2="9"
+                    />
+                    <line
+                      x1="7"
+                      y1="13"
+                      x2="17"
+                      y2="13"
+                    />
+                    <line
+                      x1="7"
+                      y1="17"
+                      x2="13"
+                      y2="17"
+                    />
                   </svg>
-                  رقم الهوية <span className="required-star">*</span>
+
+                  رقم الهوية
+                  <span className="required-star">*</span>
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="text"
                     value={studentId}
-                    onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                    onChange={(e) =>
+                      setStudentId(
+                        e.target.value.replace(/\s/g, '')
+                      )
+                    }
                     placeholder="مثال: 123456789"
                     maxLength={9}
                     required
                     className="auth-input"
-                    style={{ direction: 'ltr', textAlign: 'right' }}
+                    style={{
+                      direction: 'ltr',
+                      textAlign: 'right',
+                    }}
                   />
                 </div>
               </div>
 
-              {/* الاسم الرباعي */}
+
+              {/* الاسم */}
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
-                  الاسم الرباعي <span className="required-star">*</span>
+
+                  الاسم الرباعي
+                  <span className="required-star">*</span>
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="text"
                     value={fullName}
-                    onChange={(e) => setFullName(e.target.value)}
-                    placeholder="مثال: نادر محمد حسن أبو سليمان"
+                    onChange={(e) =>
+                      setFullName(e.target.value)
+                    }
+                    placeholder="أدخل الاسم الرباعي"
                     required
                     className="auth-input"
                   />
                 </div>
               </div>
 
-              {/* الفرع الدراسي */}
+
+              {/* الفرع */}
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z" />
+                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
                   </svg>
-                  الفرع الدراسي <span className="required-star">*</span>
+
+                  الفرع الدراسي
+                  <span className="required-star">*</span>
                 </label>
+
                 <div className="input-wrapper">
                   <select
                     value={branch}
-                    onChange={(e) => setBranch(e.target.value)}
+                    onChange={(e) =>
+                      setBranch(e.target.value)
+                    }
                     required
                     className="auth-input"
-                    style={{ cursor: 'pointer' }}
                   >
-                    <option value="" disabled>— اختر الفرع —</option>
-                    <option value="العلمي">العلمي</option>
-                    <option value="الأدبي">الأدبي</option>
+                    <option value="" disabled>
+                      — اختر الفرع —
+                    </option>
+
+                    <option value="العلمي">
+                      العلمي
+                    </option>
+
+                    <option value="الأدبي">
+                      الأدبي
+                    </option>
                   </select>
                 </div>
               </div>
 
-              {/* رقم الجوال */}
+
+              {/* الجوال */}
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
-                    <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect
+                      x="5"
+                      y="2"
+                      width="14"
+                      height="20"
+                      rx="2"
+                    />
+                    <line
+                      x1="12"
+                      y1="18"
+                      x2="12.01"
+                      y2="18"
+                    />
                   </svg>
-                  رقم الجوال <span className="required-star">*</span>
+
+                  رقم الجوال
+                  <span className="required-star">*</span>
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="tel"
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\s/g, ''))}
+                    onChange={(e) =>
+                      setPhone(
+                        e.target.value.replace(/\s/g, '')
+                      )
+                    }
                     placeholder="059xxxxxxx"
                     maxLength={10}
                     required
                     className="auth-input"
-                    style={{ direction: 'ltr', textAlign: 'right' }}
+                    style={{
+                      direction: 'ltr',
+                      textAlign: 'right',
+                    }}
                   />
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
+
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={loading}
+              >
                 {loading ? (
                   <>
                     <span className="btn-spinner"></span>
@@ -506,221 +770,865 @@ export default function Login() {
                   'إنشاء الحساب'
                 )}
               </button>
+
             </form>
 
             <div className="toggle-view">
-              <p>
-                لديك حساب بالفعل؟{' '}
-                <span onClick={goToStudentLogin}>تسجيل الدخول</span>
-              </p>
+              <span className="toggle-muted">
+                لديك حساب بالفعل؟
+              </span>
+
+              <span
+                onClick={goToStudentLogin}
+                className="toggle-link"
+              >
+                تسجيل الدخول
+              </span>
             </div>
           </>
         )}
 
-        {/* ============================================================ */}
-        {/* 3) شاشة دخول المعلم (سرية)                                   */}
-        {/* ============================================================ */}
+
+        {/* ============================================================
+            TEACHER LOGIN
+        ============================================================ */}
         {view === 'teacher' && (
           <>
-            <h1 className="auth-title">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                width="22" height="22" style={{ verticalAlign: 'middle', marginLeft: '6px' }}>
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
-              </svg>
-              بوابة المعلم
-            </h1>
+            <div className="card-header">
+              <div className="card-title">
+                بوابة المعلم
+              </div>
 
-            <form onSubmit={handleTeacherLogin} className="auth-form">
+              <div className="card-subtitle">
+                تسجيل الدخول إلى لوحة التحكم
+              </div>
+            </div>
+
+            <form
+              onSubmit={handleTeacherLogin}
+              className="auth-form"
+            >
+
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-                    <circle cx="12" cy="7" r="4"></circle>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
+
                   اسم المستخدم
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="text"
                     value={teacherUsername}
-                    onChange={(e) => setTeacherUsername(e.target.value)}
+                    onChange={(e) =>
+                      setTeacherUsername(e.target.value)
+                    }
                     placeholder="اسم المستخدم"
                     required
                     autoComplete="username"
                     className="auth-input"
-                    style={{ direction: 'ltr', textAlign: 'right' }}
+                    style={{
+                      direction: 'ltr',
+                      textAlign: 'right',
+                    }}
                   />
                 </div>
               </div>
 
+
               <div className="input-group">
                 <label>
-                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                  <svg
+                    className="label-icon"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                  >
+                    <rect
+                      x="3"
+                      y="11"
+                      width="18"
+                      height="11"
+                      rx="2"
+                    />
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
+
                   كلمة المرور
                 </label>
+
                 <div className="input-wrapper">
                   <input
                     type="password"
                     value={teacherPassword}
-                    onChange={(e) => setTeacherPassword(e.target.value)}
+                    onChange={(e) =>
+                      setTeacherPassword(e.target.value)
+                    }
                     placeholder="•••••••"
                     required
                     autoComplete="current-password"
                     className="auth-input"
-                    style={{ direction: 'rtl', textAlign: 'right' }}
                   />
                 </div>
               </div>
 
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري التحقق...' : 'دخول لوحة المعلم'}
+
+              <button
+                type="submit"
+                className="submit-btn"
+                disabled={loading}
+              >
+                {loading
+                  ? 'جاري التحقق...'
+                  : 'دخول لوحة المعلم'}
               </button>
+
             </form>
 
             <div className="toggle-view">
-              <p>
-                لست معلماً؟{' '}
-                <span onClick={goToStudentLogin}>العودة لتسجيل الدخول</span>
-              </p>
+              <span
+                onClick={goToStudentLogin}
+                className="toggle-link"
+              >
+                العودة لتسجيل الدخول
+              </span>
             </div>
           </>
         )}
 
       </div>
 
+
+      {/* ============================================================
+          FOOTER
+      ============================================================ */}
       <Footer />
 
+
+      {/* ============================================================
+          STYLES
+      ============================================================ */}
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
 
-        :root { color-scheme: light only; }
-        * { box-sizing: border-box; }
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
 
-        body, html {
-          margin: 0; padding: 0;
-          font-family: 'Cairo', sans-serif;
-          background: #eef5ff; color: #1e293b;
+        :root {
+          color-scheme: light only;
         }
 
-        input, select, button, textarea { font-family: 'Cairo', sans-serif; }
+        * {
+          box-sizing: border-box;
+        }
+
+        html,
+        body,
+        #root {
+          margin: 0;
+          min-height: 100%;
+        }
+
+        body {
+          font-family: 'Cairo', sans-serif;
+          background: #edf5ff;
+          color: #1e293b;
+        }
+
+        input,
+        select,
+        button,
+        textarea {
+          font-family: 'Cairo', sans-serif;
+        }
+
+
+        /* ============================================================
+           PAGE
+        ============================================================ */
 
         .auth-page-container {
-          min-height: 100vh; display: flex; flex-direction: column;
-          align-items: center; justify-content: center; direction: rtl;
-          background: linear-gradient(135deg, #eef5ff 0%, #d8e8fc 100%);
-          padding: 20px;
+          min-height: 100vh;
+          width: 100%;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          direction: rtl;
+          overflow-x: hidden;
+
+          background:
+            radial-gradient(
+              circle at 20% 10%,
+              rgba(255,255,255,0.9) 0%,
+              transparent 32%
+            ),
+            linear-gradient(
+              145deg,
+              #f4f9ff 0%,
+              #e9f3ff 45%,
+              #dcecff 100%
+            );
+
+          padding:
+            max(18px, env(safe-area-inset-top))
+            18px
+            max(24px, env(safe-area-inset-bottom));
         }
 
-        .top-logo-container {
-          margin-bottom: 15px; display: flex; justify-content: center; width: 100%;
+
+        /* ============================================================
+           HERO
+        ============================================================ */
+
+        .teacher-hero {
+          position: relative;
+          width: 100%;
+          max-width: 720px;
+          min-height: 285px;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+
+          margin: 0 auto 8px;
+
+          overflow: hidden;
+          isolation: isolate;
         }
-        .premium-logo-wrapper {
-          position: relative; display: inline-block;
-          animation: floating 4s ease-in-out infinite;
+
+
+        /* دوائر الخلفية */
+
+        .hero-glow {
+          position: absolute;
+          border-radius: 50%;
+          pointer-events: none;
+          z-index: -1;
         }
-        .premium-logo-img {
-          width: 160px; height: auto; display: block;
-          user-select: none; -webkit-user-drag: none;
+
+        .hero-glow-one {
+          width: 340px;
+          height: 340px;
+          right: 50%;
+          top: -110px;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(83, 143, 221, 0.13),
+              rgba(83, 143, 221, 0)
+            );
         }
+
+        .hero-glow-two {
+          width: 230px;
+          height: 230px;
+          left: -80px;
+          bottom: -110px;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(79, 142, 222, 0.09),
+              rgba(79, 142, 222, 0)
+            );
+        }
+
+
+        /* ============================================================
+           TEACHER INFO
+        ============================================================ */
+
+        .teacher-info {
+          position: relative;
+          z-index: 4;
+
+          width: 47%;
+
+          display: flex;
+          flex-direction: column;
+          align-items: flex-start;
+
+          padding-right: 18px;
+
+          margin-top: -8px;
+        }
+
+        .teacher-name {
+          color: #203b5f;
+          font-size: clamp(25px, 4vw, 38px);
+          line-height: 1.3;
+          font-weight: 800;
+          letter-spacing: -0.8px;
+
+          white-space: nowrap;
+        }
+
+        .teacher-role {
+          color: #5e8fc9;
+          font-size: 14px;
+          font-weight: 600;
+          letter-spacing: 3px;
+
+          margin-top: 4px;
+          direction: ltr;
+        }
+
+        .teacher-line {
+          width: 58px;
+          height: 3px;
+
+          background: #4b8bd9;
+          border-radius: 99px;
+
+          margin-top: 11px;
+        }
+
+        .teacher-motto {
+          margin-top: 18px;
+
+          color: rgba(54, 101, 155, 0.17);
+
+          font-family: Arial, sans-serif;
+          font-size: 19px;
+          line-height: 1.08;
+          font-weight: 700;
+          letter-spacing: 1px;
+
+          direction: ltr;
+          text-align: left;
+        }
+
+        .teacher-motto span {
+          color: rgba(54, 101, 155, 0.27);
+        }
+
+
+        /* ============================================================
+           TEACHER IMAGE
+        ============================================================ */
+
+        .teacher-image-wrapper {
+          position: relative;
+
+          width: 52%;
+          height: 300px;
+
+          display: flex;
+          align-items: flex-end;
+          justify-content: center;
+
+          cursor: default;
+          user-select: none;
+
+          z-index: 3;
+        }
+
+        .number-shape {
+          position: absolute;
+
+          right: 12%;
+          top: 8px;
+
+          font-family: Arial, sans-serif;
+          font-size: 280px;
+          line-height: 0.85;
+          font-weight: 900;
+
+          color: rgba(68, 120, 187, 0.12);
+
+          z-index: -1;
+          pointer-events: none;
+        }
+
+        .teacher-image {
+          position: relative;
+
+          width: 100%;
+          max-width: 390px;
+          height: 100%;
+
+          object-fit: contain;
+          object-position: center bottom;
+
+          display: block;
+
+          filter:
+            drop-shadow(
+              0 18px 24px rgba(45, 84, 128, 0.12)
+            );
+
+          -webkit-user-drag: none;
+        }
+
+
+        /* ============================================================
+           PARTNER
+        ============================================================ */
 
         .partner-text {
-          text-align: center; padding: 8px 20px; border-radius: 40px;
-          margin-bottom: 20px; display: inline-block;
+          text-align: center;
+          margin: 0 auto 15px;
+
+          line-height: 1.2;
         }
-        .partner-label { font-size: 12px; font-weight: 500; color: #4a8ada; margin-bottom: -6px; }
-        .partner-name { font-size: 16px; font-weight: 700; color: #2c5282; }
+
+        .partner-label {
+          color: #7191b2;
+          font-size: 11px;
+          font-weight: 500;
+        }
+
+        .partner-name {
+          color: #55789d;
+          font-size: 14px;
+          font-weight: 700;
+        }
+
+
+        /* ============================================================
+           AUTH CARD
+        ============================================================ */
 
         .auth-card {
+          position: relative;
+
+          width: 100%;
+          max-width: 500px;
+
           background: rgba(255, 255, 255, 0.96);
-          backdrop-filter: blur(12px);
-          width: 100%; max-width: 440px; padding: 30px;
-          border-radius: 24px;
-          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
-          border: 1px solid rgba(255, 255, 255, 0.3);
+
+          border-radius: 30px;
+
+          padding: 31px 34px 25px;
+
+          box-shadow:
+            0 20px 55px rgba(53, 88, 124, 0.10),
+            0 4px 15px rgba(53, 88, 124, 0.05);
+
+          border: 1px solid rgba(255,255,255,0.8);
+
+          backdrop-filter: blur(15px);
+          -webkit-backdrop-filter: blur(15px);
+
+          z-index: 10;
         }
 
-        .auth-title {
-          text-align: center; color: #2c3e50;
-          margin: 0 0 22px 0; font-size: 22px; font-weight: 700;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-        }
-        .auth-subtitle {
-          text-align: center; color: #64748b; font-size: 13px;
-          margin: -14px 0 18px 0;
+
+        /* ============================================================
+           CARD HEADER
+        ============================================================ */
+
+        .card-header {
+          text-align: center;
+          margin-bottom: 23px;
         }
 
-        .auth-form { display: flex; flex-direction: column; gap: 16px; }
+        .card-title {
+          color: #263b55;
+
+          font-size: 27px;
+          line-height: 1.3;
+
+          font-weight: 800;
+
+          letter-spacing: -0.4px;
+        }
+
+        .card-subtitle {
+          color: #8a9aad;
+
+          font-size: 12px;
+          font-weight: 500;
+
+          margin-top: 6px;
+        }
+
+
+        /* ============================================================
+           FORM
+        ============================================================ */
+
+        .auth-form {
+          display: flex;
+          flex-direction: column;
+          gap: 17px;
+        }
+
+        .input-group {
+          width: 100%;
+        }
 
         .input-group label {
-          display: flex; align-items: center; gap: 8px;
-          font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 7px;
-        }
-        .label-icon { width: 16px; height: 16px; color: #4a8ada; }
-        .required-star { color: #ef4444; font-weight: 700; }
+          display: flex;
+          align-items: center;
+          gap: 7px;
 
-        .input-wrapper input, .input-wrapper select {
-          width: 100%; padding: 13px 15px;
-          border: 1.5px solid #e2e8f0; border-radius: 12px;
-          font-size: 14px; background: #f8fafc; color: #1e293b;
-          transition: all 0.3s ease; text-align: right; outline: none;
-        }
-        .input-wrapper input:focus, .input-wrapper select:focus {
-          border-color: #4a8ada; background: #ffffff;
-          box-shadow: 0 0 0 4px rgba(74, 138, 218, 0.1);
+          margin-bottom: 8px;
+
+          color: #596a7d;
+
+          font-size: 13px;
+          font-weight: 700;
         }
 
-        .input-hint {
-          font-size: 11px; color: #94a3b8;
-          margin-top: 5px; padding-right: 4px;
+        .label-icon {
+          width: 18px;
+          height: 18px;
+
+          color: #5792d4;
+
+          flex-shrink: 0;
         }
+
+        .required-star {
+          color: #ef5350;
+          font-weight: 800;
+        }
+
+
+        /* ============================================================
+           INPUT
+        ============================================================ */
+
+        .input-wrapper {
+          width: 100%;
+        }
+
+        .auth-input {
+          width: 100%;
+
+          height: 57px;
+
+          padding:
+            0 17px;
+
+          border:
+            1.5px solid #e2eaf2;
+
+          border-radius: 17px;
+
+          background: #f8fafc;
+
+          color: #243447;
+
+          font-size: 14px;
+          font-weight: 500;
+
+          outline: none;
+
+          transition:
+            border-color 0.25s ease,
+            box-shadow 0.25s ease,
+            background 0.25s ease,
+            transform 0.25s ease;
+        }
+
+        .auth-input::placeholder {
+          color: #a8b2be;
+          opacity: 1;
+        }
+
+        .auth-input:hover {
+          border-color: #cddceb;
+        }
+
+        .auth-input:focus {
+          border-color: #5792d4;
+
+          background: #fff;
+
+          box-shadow:
+            0 0 0 4px rgba(87, 146, 212, 0.10);
+        }
+
+        select.auth-input {
+          cursor: pointer;
+          appearance: auto;
+        }
+
+
+        /* ============================================================
+           SUBMIT BUTTON
+        ============================================================ */
 
         .submit-btn {
-          width: 100%; padding: 14px; border: none; border-radius: 12px;
-          background: linear-gradient(135deg, #4a8ada, #3b76c4);
-          color: white; font-size: 16px; font-weight: 700; cursor: pointer;
-          transition: 0.3s; box-shadow: 0 8px 15px rgba(74, 138, 218, 0.25);
-          margin-top: 6px;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
+          width: 100%;
+          height: 58px;
+
+          border: none;
+          border-radius: 17px;
+
+          margin-top: 4px;
+
+          background:
+            linear-gradient(
+              135deg,
+              #5796dc 0%,
+              #397bc7 100%
+            );
+
+          color: #fff;
+
+          font-size: 17px;
+          font-weight: 800;
+
+          cursor: pointer;
+
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 9px;
+
+          box-shadow:
+            0 10px 22px rgba(62, 126, 201, 0.22);
+
+          transition:
+            transform 0.2s ease,
+            box-shadow 0.2s ease,
+            opacity 0.2s ease;
         }
+
         .submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 12px 20px rgba(74, 138, 218, 0.35);
+
+          box-shadow:
+            0 14px 27px rgba(62, 126, 201, 0.28);
         }
-        .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+        .submit-btn:active:not(:disabled) {
+          transform: translateY(0);
+        }
+
+        .submit-btn:disabled {
+          opacity: 0.65;
+          cursor: not-allowed;
+        }
+
+
+        /* ============================================================
+           SPINNER
+        ============================================================ */
 
         .btn-spinner {
-          width: 16px; height: 16px;
-          border: 2px solid rgba(255, 255, 255, 0.4);
+          width: 17px;
+          height: 17px;
+
+          border:
+            2px solid rgba(255,255,255,0.35);
+
           border-top-color: #fff;
+
           border-radius: 50%;
-          animation: spin 0.7s linear infinite;
-          display: inline-block;
+
+          animation:
+            spin 0.7s linear infinite;
         }
-        @keyframes spin { to { transform: rotate(360deg); } }
+
+        @keyframes spin {
+          to {
+            transform: rotate(360deg);
+          }
+        }
+
+
+        /* ============================================================
+           TOGGLE
+        ============================================================ */
 
         .toggle-view {
-          text-align: center; margin-top: 18px;
-          font-size: 14px; color: #4a5568;
-        }
-        .toggle-view span {
-          color: #4a8ada; cursor: pointer;
-          font-weight: 700; margin-right: 5px;
-        }
-        .toggle-view span:hover { text-decoration: underline; }
+          display: flex;
+          justify-content: center;
+          align-items: center;
+          flex-wrap: wrap;
+          gap: 5px;
 
-        @keyframes floating {
-          0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          margin-top: 19px;
+
+          font-size: 13px;
         }
 
-        @media (max-width: 480px) {
-          .premium-logo-img { width: 140px; }
-          .auth-card { padding: 25px 18px; margin: 10px; }
+        .toggle-muted {
+          color: #68788a;
         }
+
+        .toggle-link {
+          color: #4d8bcf;
+
+          font-weight: 800;
+
+          cursor: pointer;
+
+          transition: color 0.2s ease;
+        }
+
+        .toggle-link:hover {
+          color: #286bb0;
+          text-decoration: underline;
+        }
+
+
+        /* ============================================================
+           MOBILE
+        ============================================================ */
+
+        @media (max-width: 600px) {
+
+          .auth-page-container {
+            padding:
+              10px
+              12px
+              max(22px, env(safe-area-inset-bottom));
+          }
+
+          .teacher-hero {
+            min-height: 275px;
+            margin-bottom: 0;
+          }
+
+          .teacher-info {
+            position: absolute;
+
+            left: 5%;
+            bottom: 35px;
+
+            width: 50%;
+
+            padding: 0;
+
+            align-items: flex-start;
+
+            z-index: 5;
+          }
+
+          .teacher-name {
+            font-size: clamp(21px, 6vw, 29px);
+          }
+
+          .teacher-role {
+            font-size: 11px;
+            letter-spacing: 2px;
+          }
+
+          .teacher-motto {
+            font-size: 15px;
+            margin-top: 13px;
+          }
+
+          .teacher-line {
+            margin-top: 8px;
+          }
+
+          .teacher-image-wrapper {
+            position: absolute;
+
+            right: -2%;
+            bottom: 0;
+
+            width: 67%;
+            height: 285px;
+          }
+
+          .number-shape {
+            right: 8%;
+            top: 10px;
+            font-size: 250px;
+          }
+
+          .teacher-image {
+            max-width: 330px;
+          }
+
+          .partner-text {
+            margin-top: -2px;
+            margin-bottom: 12px;
+          }
+
+          .auth-card {
+            max-width: 100%;
+
+            padding:
+              26px
+              18px
+              22px;
+
+            border-radius: 26px;
+          }
+
+          .card-title {
+            font-size: 24px;
+          }
+
+          .card-header {
+            margin-bottom: 20px;
+          }
+
+          .auth-form {
+            gap: 15px;
+          }
+
+          .auth-input {
+            height: 54px;
+            border-radius: 15px;
+          }
+
+          .submit-btn {
+            height: 55px;
+            border-radius: 15px;
+            font-size: 16px;
+          }
+        }
+
+
+        /* ============================================================
+           VERY SMALL PHONES
+        ============================================================ */
+
+        @media (max-width: 380px) {
+
+          .teacher-hero {
+            min-height: 250px;
+          }
+
+          .teacher-image-wrapper {
+            width: 68%;
+            height: 260px;
+          }
+
+          .teacher-info {
+            bottom: 29px;
+            left: 3%;
+          }
+
+          .teacher-name {
+            font-size: 20px;
+          }
+
+          .teacher-role {
+            font-size: 10px;
+          }
+
+          .teacher-motto {
+            font-size: 13px;
+          }
+
+          .number-shape {
+            font-size: 225px;
+          }
+
+          .auth-card {
+            padding: 23px 15px 20px;
+          }
+        }
+
       `}</style>
     </div>
   );
