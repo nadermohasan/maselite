@@ -11,21 +11,25 @@ export default function Login() {
   const [view, setView] = useState('student');
   const [loading, setLoading] = useState(false);
 
-  // حقول الطالب
+  // ============ حقول التسجيل / الدخول ============
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [phone, setPhone] = useState('');
 
-  // حقول المعلم
+  // ============ حقول المعلم ============
   const [teacherUsername, setTeacherUsername] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
 
   const [partnerLabel, setPartnerLabel] = useState('');
   const [partnerName, setPartnerName] = useState('');
 
+  // 🕵️ عدّاد النقر السري على الشعار
+  const [secretClicks, setSecretClicks] = useState(0);
+
   const navigate = useNavigate();
 
+  // ============ تحميل partner.json ============
   useEffect(() => {
     fetch('/partner.json')
       .then(res => res.json())
@@ -38,6 +42,43 @@ export default function Login() {
         setPartnerName('مركز ماكس');
       });
   }, []);
+
+  // ============ بوابة المعلم السرية ============
+  useEffect(() => {
+    // رابط مباشر: /login?teacher=1
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('teacher') === '1') {
+      setView('teacher');
+    }
+
+    // اختصار لوحة المفاتيح: Ctrl + Shift + T
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        resetForm();
+        setView('teacher');
+        toast.success('🔓 تم فتح بوابة المعلم');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // 🖱️ 5 نقرات متتالية على الشعار
+  const handleLogoClick = () => {
+    const newCount = secretClicks + 1;
+    setSecretClicks(newCount);
+
+    if (newCount >= 5) {
+      setSecretClicks(0);
+      resetForm();
+      setView('teacher');
+      toast.success('🔓 تم فتح بوابة المعلم');
+      return;
+    }
+
+    setTimeout(() => setSecretClicks(0), 2000);
+  };
 
   const resetForm = () => {
     setStudentId('');
@@ -58,8 +99,12 @@ export default function Login() {
     setView('student');
   };
 
+  const goToSignup = () => {
+    setView('signup');
+  };
+
   // ============================
-  // تسجيل دخول الطالب
+  // 1) تسجيل دخول الطالب
   // ============================
   const handleStudentLogin = async (e) => {
     e.preventDefault();
@@ -72,14 +117,14 @@ export default function Login() {
     setLoading(true);
 
     try {
-      // 1. التحقق من وجود الحساب في profiles
+      // التحقق من وجود الحساب
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, role')
         .eq('nationalID', id)
         .maybeSingle();
 
-      // 2. إذا لم يكن مسجل → انتقل لصفحة إنشاء الحساب
+      // إذا لم يكن مسجلاً → انتقل لصفحة التسجيل
       if (!profile) {
         setView('signup');
         setLoading(false);
@@ -87,14 +132,13 @@ export default function Login() {
         return;
       }
 
-      // 3. إذا كان الحساب موجود لكن دوره غير طالب
       if (profile.role !== 'student') {
         toast.error('هذا الحساب غير مصرح له بالدخول كطالب');
         setLoading(false);
         return;
       }
 
-      // 4. محاولة تسجيل الدخول
+      // تسجيل الدخول
       const email = `${id}@${EMAIL_DOMAIN}`;
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -107,7 +151,6 @@ export default function Login() {
         return;
       }
 
-      // 5. توجيه الطالب مباشرة للاختبار عبر /dashboard (StudentRedirect)
       toast.success('تم تسجيل الدخول بنجاح');
       navigate('/dashboard', { replace: true });
     } catch (err) {
@@ -118,33 +161,68 @@ export default function Login() {
   };
 
   // ============================
-  // إنشاء حساب طالب جديد
+  // 2) ⭐ إنشاء حساب طالب جديد
   // ============================
   const handleStudentSignup = async (e) => {
     e.preventDefault();
     const id = studentId.trim();
 
-    if (!id) { toast.error('رقم الهوية مطلوب'); return; }
-    if (!/^\d{9}$/.test(id)) { toast.error('رقم الهوية يجب أن يكون 9 أرقام'); return; }
-    if (!fullName.trim()) { toast.error('الرجاء إدخال الاسم الرباعي'); return; }
-    if (!branch) { toast.error('الرجاء اختيار الفرع الدراسي'); return; }
-    if (!phone.trim()) { toast.error('الرجاء إدخال رقم الجوال'); return; }
-    if (!/^(059|056)\d{7}$/.test(phone.trim())) { toast.error('رقم الجوال غير صحيح'); return; }
+    // ============ التحقق من صحة البيانات ============
+    if (!id) {
+      toast.error('رقم الهوية مطلوب');
+      return;
+    }
+    if (!/^\d{9}$/.test(id)) {
+      toast.error('رقم الهوية يجب أن يكون 9 أرقام');
+      return;
+    }
+    if (!fullName.trim() || fullName.trim().split(/\s+/).length < 4) {
+      toast.error('الرجاء إدخال الاسم الرباعي كاملاً');
+      return;
+    }
+    if (!branch) {
+      toast.error('الرجاء اختيار الفرع الدراسي');
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error('الرجاء إدخال رقم الجوال');
+      return;
+    }
+    if (!/^(059|056)\d{7}$/.test(phone.trim())) {
+      toast.error('رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)');
+      return;
+    }
 
     setLoading(true);
 
     try {
       const email = `${id}@${EMAIL_DOMAIN}`;
 
-      // 1. إنشاء حساب auth
+      // ============ 1) التحقق المسبق من عدم وجود الحساب ============
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('nationalID', id)
+        .maybeSingle();
+
+      if (existingProfile) {
+        toast.error('رقم الهوية مسجل مسبقاً. جرب تسجيل الدخول');
+        setView('student');
+        setLoading(false);
+        return;
+      }
+
+      // ============ 2) إنشاء الحساب في auth ============
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password: id,
       });
 
       if (signUpError) {
-        // في حال وُجد الحساب مسبقاً
-        if (signUpError.message?.includes('already') || signUpError.message?.includes('duplicate')) {
+        if (
+          signUpError.message?.includes('already') ||
+          signUpError.message?.includes('duplicate')
+        ) {
           toast.error('هذا الحساب موجود بالفعل. جرب تسجيل الدخول');
           setView('student');
           setLoading(false);
@@ -153,34 +231,45 @@ export default function Login() {
         throw signUpError;
       }
 
-      if (!signUpData.user) throw new Error('فشل إنشاء الحساب');
-
-      // 2. إنشاء الملف الشخصي
-      const { error: profileError } = await supabase.from('profiles').insert([{
-        id: signUpData.user.id,
-        nationalID: id,
-        name: fullName.trim(),
-        role: 'student',
-        branch,
-        phone: phone.trim(),
-      }]);
-
-      if (profileError) {
-        await supabase.auth.signOut();
-        throw profileError;
+      if (!signUpData.user) {
+        throw new Error('فشل إنشاء الحساب - لم يتم إنشاء المستخدم');
       }
 
-      toast.success('تم إنشاء حسابك بنجاح!');
-      navigate('/dashboard', { replace: true });
+      // ============ 3) إنشاء الملف الشخصي ============
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .insert([{
+          id: signUpData.user.id,
+          nationalID: id,
+          name: fullName.trim(),
+          role: 'student',
+          branch: branch,
+          phone: phone.trim(),
+        }]);
+
+      if (profileError) {
+        // لو فشل إنشاء الملف الشخصي، احذف الحساب من auth
+        await supabase.auth.signOut();
+        throw new Error('فشل حفظ البيانات الشخصية: ' + profileError.message);
+      }
+
+      // ============ 4) نجاح ✅ ============
+      toast.success('تم إنشاء حسابك بنجاح! جاري تحويلك...');
+      
+      // التوجيه إلى /dashboard (التي ستعيد التوجيه إلى الاختبار أو تعرض رسالة)
+      setTimeout(() => {
+        navigate('/dashboard', { replace: true });
+      }, 800);
+
     } catch (err) {
-      console.error(err);
+      console.error('Signup error:', err);
       toast.error('فشل إنشاء الحساب: ' + (err.message || 'خطأ غير معروف'));
       setLoading(false);
     }
   };
 
   // ============================
-  // تسجيل دخول المعلم
+  // 3) تسجيل دخول المعلم
   // ============================
   const handleTeacherLogin = async (e) => {
     e.preventDefault();
@@ -229,9 +318,19 @@ export default function Login() {
 
   return (
     <div className="auth-page-container">
+      {/* الشعار - انقر 5 مرات سريعاً لفتح بوابة المعلم */}
       <div className="top-logo-container">
-        <div className="premium-logo-wrapper">
-          <img src="https://i.imgur.com/ETr3K2d.png" alt="النخبة" className="premium-logo-img" />
+        <div
+          className="premium-logo-wrapper"
+          onClick={handleLogoClick}
+          style={{ cursor: 'default', userSelect: 'none' }}
+        >
+          <img
+            src="https://i.imgur.com/ETr3K2d.png"
+            alt="النخبة"
+            className="premium-logo-img"
+            draggable={false}
+          />
         </div>
       </div>
 
@@ -241,7 +340,10 @@ export default function Login() {
       </div>
 
       <div className="auth-card">
-        {/* ====== شاشة دخول الطالب ====== */}
+
+        {/* ============================================================ */}
+        {/* 1) شاشة تسجيل دخول الطالب                                    */}
+        {/* ============================================================ */}
         {view === 'student' && (
           <>
             <h1 className="auth-title">تسجيل دخول الطالب</h1>
@@ -274,38 +376,69 @@ export default function Login() {
               </button>
             </form>
 
-            <div className="divider-or">
-              <span>أو</span>
+            <div className="toggle-view">
+              <p>
+                ليس لديك حساب؟{' '}
+                <span onClick={goToSignup}>إنشاء حساب جديد</span>
+              </p>
             </div>
-
-            <button
-              type="button"
-              onClick={goToTeacherLogin}
-              className="teacher-btn"
-            >
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" width="18" height="18">
-                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
-                <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
-              </svg>
-              دخول المعلم
-            </button>
           </>
         )}
 
-        {/* ====== شاشة إنشاء حساب طالب ====== */}
+        {/* ============================================================ */}
+        {/* 2) ⭐ شاشة إنشاء حساب طالب جديد (كاملة)                       */}
+        {/* ============================================================ */}
         {view === 'signup' && (
           <>
-            <h1 className="auth-title">إكمال بيانات التسجيل</h1>
-            <p className="auth-subtitle">رقم الهوية: <strong>{studentId}</strong></p>
+            <h1 className="auth-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                width="22" height="22" style={{ verticalAlign: 'middle', marginLeft: '6px' }}>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+              </svg>
+              إنشاء حساب جديد
+            </h1>
 
             <form onSubmit={handleStudentSignup} className="auth-form">
+
+              {/* رقم الهوية */}
+              <div className="input-group">
+                <label>
+                  <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                    <line x1="7" y1="9" x2="17" y2="9"></line>
+                    <line x1="7" y1="13" x2="17" y2="13"></line>
+                    <line x1="7" y1="17" x2="13" y2="17"></line>
+                  </svg>
+                  رقم الهوية <span className="required-star">*</span>
+                </label>
+                <div className="input-wrapper">
+                  <input
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                    placeholder="مثال: 406114967"
+                    maxLength={9}
+                    required
+                    className="auth-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+                <div className="input-hint">
+                  يجب أن يكون 9 أرقام فقط
+                </div>
+              </div>
+
+              {/* الاسم الرباعي */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
                     <circle cx="12" cy="7" r="4"></circle>
                   </svg>
-                  الاسم الرباعي
+                  الاسم الرباعي <span className="required-star">*</span>
                 </label>
                 <div className="input-wrapper">
                   <input
@@ -317,15 +450,19 @@ export default function Login() {
                     className="auth-input"
                   />
                 </div>
+                <div className="input-hint">
+                  أدخل الاسم الرباعي كاملاً (4 كلمات على الأقل)
+                </div>
               </div>
 
+              {/* الفرع الدراسي */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
                     <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
                   </svg>
-                  الفرع الدراسي
+                  الفرع الدراسي <span className="required-star">*</span>
                 </label>
                 <div className="input-wrapper">
                   <select
@@ -335,20 +472,21 @@ export default function Login() {
                     className="auth-input"
                     style={{ cursor: 'pointer' }}
                   >
-                    <option value="" disabled>اختر الفرع</option>
+                    <option value="" disabled>— اختر الفرع —</option>
                     <option value="العلمي">العلمي</option>
                     <option value="الأدبي">الأدبي</option>
                   </select>
                 </div>
               </div>
 
+              {/* رقم الجوال */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                     <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
                     <line x1="12" y1="18" x2="12.01" y2="18"></line>
                   </svg>
-                  رقم الجوال
+                  رقم الجوال <span className="required-star">*</span>
                 </label>
                 <div className="input-wrapper">
                   <input
@@ -359,22 +497,38 @@ export default function Login() {
                     maxLength={10}
                     required
                     className="auth-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
                   />
+                </div>
+                <div className="input-hint">
+                  يبدأ بـ 059 أو 056 (10 أرقام)
                 </div>
               </div>
 
               <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري الإنشاء...' : 'إنشاء الحساب والدخول'}
+                {loading ? (
+                  <>
+                    <span className="btn-spinner"></span>
+                    جاري إنشاء الحساب...
+                  </>
+                ) : (
+                  'إنشاء الحساب والدخول'
+                )}
               </button>
             </form>
 
             <div className="toggle-view">
-              <p>لديك حساب بالفعل؟ <span onClick={goToStudentLogin}>تسجيل الدخول</span></p>
+              <p>
+                لديك حساب بالفعل؟{' '}
+                <span onClick={goToStudentLogin}>تسجيل الدخول</span>
+              </p>
             </div>
           </>
         )}
 
-        {/* ====== شاشة دخول المعلم ====== */}
+        {/* ============================================================ */}
+        {/* 3) شاشة دخول المعلم (سرية)                                   */}
+        {/* ============================================================ */}
         {view === 'teacher' && (
           <>
             <h1 className="auth-title">
@@ -437,10 +591,14 @@ export default function Login() {
             </form>
 
             <div className="toggle-view">
-              <p>لست معلماً؟ <span onClick={goToStudentLogin}>العودة لتسجيل دخول الطالب</span></p>
+              <p>
+                لست معلماً؟{' '}
+                <span onClick={goToStudentLogin}>العودة لتسجيل دخول الطالب</span>
+              </p>
             </div>
           </>
         )}
+
       </div>
 
       <Footer />
@@ -473,7 +631,10 @@ export default function Login() {
           position: relative; display: inline-block;
           animation: floating 4s ease-in-out infinite;
         }
-        .premium-logo-img { width: 160px; height: auto; display: block; }
+        .premium-logo-img {
+          width: 160px; height: auto; display: block;
+          user-select: none; -webkit-user-drag: none;
+        }
 
         .partner-text {
           text-align: center; padding: 8px 20px; border-radius: 40px;
@@ -485,7 +646,7 @@ export default function Login() {
         .auth-card {
           background: rgba(255, 255, 255, 0.96);
           backdrop-filter: blur(12px);
-          width: 100%; max-width: 420px; padding: 30px;
+          width: 100%; max-width: 440px; padding: 30px;
           border-radius: 24px;
           box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
           border: 1px solid rgba(255, 255, 255, 0.3);
@@ -508,6 +669,7 @@ export default function Login() {
           font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 7px;
         }
         .label-icon { width: 16px; height: 16px; color: #4a8ada; }
+        .required-star { color: #ef4444; font-weight: 700; }
 
         .input-wrapper input, .input-wrapper select {
           width: 100%; padding: 13px 15px;
@@ -520,12 +682,18 @@ export default function Login() {
           box-shadow: 0 0 0 4px rgba(74, 138, 218, 0.1);
         }
 
+        .input-hint {
+          font-size: 11px; color: #94a3b8;
+          margin-top: 5px; padding-right: 4px;
+        }
+
         .submit-btn {
           width: 100%; padding: 14px; border: none; border-radius: 12px;
           background: linear-gradient(135deg, #4a8ada, #3b76c4);
           color: white; font-size: 16px; font-weight: 700; cursor: pointer;
           transition: 0.3s; box-shadow: 0 8px 15px rgba(74, 138, 218, 0.25);
           margin-top: 6px;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
@@ -533,32 +701,25 @@ export default function Login() {
         }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
-        .teacher-btn {
-          width: 100%; padding: 12px; border: 1.5px dashed #cbd5e1;
-          background: #f8fafc; border-radius: 12px;
-          color: #475569; font-size: 15px; font-weight: 700; cursor: pointer;
-          display: flex; align-items: center; justify-content: center; gap: 8px;
-          transition: 0.2s;
+        .btn-spinner {
+          width: 16px; height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.4);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          display: inline-block;
         }
-        .teacher-btn:hover {
-          background: #eff6ff; border-color: #4a8ada; color: #2c5282;
-        }
+        @keyframes spin { to { transform: rotate(360deg); } }
 
-        .divider-or {
-          text-align: center; margin: 16px 0 12px;
-          position: relative;
+        .toggle-view {
+          text-align: center; margin-top: 18px;
+          font-size: 14px; color: #4a5568;
         }
-        .divider-or::before {
-          content: ''; position: absolute; top: 50%; left: 0; right: 0;
-          height: 1px; background: #e2e8f0; z-index: 0;
+        .toggle-view span {
+          color: #4a8ada; cursor: pointer;
+          font-weight: 700; margin-right: 5px;
         }
-        .divider-or span {
-          background: #fff; padding: 0 12px; position: relative; z-index: 1;
-          color: #94a3b8; font-size: 12px; font-weight: 600;
-        }
-
-        .toggle-view { text-align: center; margin-top: 18px; font-size: 14px; color: #4a5568; }
-        .toggle-view span { color: #4a8ada; cursor: pointer; font-weight: 700; margin-right: 5px; }
+        .toggle-view span:hover { text-decoration: underline; }
 
         @keyframes floating {
           0%, 100% { transform: translateY(0); }
