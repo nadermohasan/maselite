@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';ظظ
+import { supabase } from '../supabaseClient';
 import { toast } from 'react-hot-toast';
 import Footer from './Footer';
 
@@ -416,20 +416,21 @@ export default function Login() {
 
         </div>
 
-        <img
-  src={TEACHER_IMAGE}
-  alt="أ. محمد أبو سليمان"
-  className="teacher-image"
-  draggable={false}
-  onError={(e) => {
-    console.error('❌ فشل تحميل الصورة:', TEACHER_IMAGE);
-    console.error('تأكد أن الملف موجود في: public/teacher.png');
-    e.target.style.display = 'none';
-  }}
-  onLoad={() => {
-    console.log('✅ تم تحميل الصورة بنجاح');
-  }}
-/>
+        {/* صورة المعلم */}
+        <div
+          className="teacher-image-wrapper"
+          onClick={handleLogoClick}
+          title="English Teacher"
+        >
+          <div className="number-shape">1</div>
+
+          <img
+            src={TEACHER_IMAGE}
+            alt="أ. محمد أبو سليمان"
+            className="teacher-image"
+            draggable={false}
+          />
+        </div>
 
       </section>
 
