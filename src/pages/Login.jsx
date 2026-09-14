@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { supabase } from '../supabaseClient';
+import { supabase } from '../supabaseClient';ظظ
 import { toast } from 'react-hot-toast';
 import Footer from './Footer';
 
@@ -425,7 +425,7 @@ export default function Login() {
           <div className="number-shape">1</div>
 
           <img
-            src={TEACHER_IMAGE}
+            src="/teacher.png"
             alt="أ. محمد أبو سليمان"
             className="teacher-image"
             draggable={false}
