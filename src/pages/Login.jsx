@@ -14,7 +14,6 @@ export default function Login() {
   // ==============================
   // STUDENT DATA
   // ==============================
-
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
@@ -23,21 +22,18 @@ export default function Login() {
   // ==============================
   // TEACHER DATA
   // ==============================
-
   const [teacherUsername, setTeacherUsername] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
 
   // ==============================
   // PARTNER
   // ==============================
-
   const [partnerLabel, setPartnerLabel] = useState('');
   const [partnerName, setPartnerName] = useState('');
 
   // ==============================
   // SECRET TEACHER ACCESS
   // ==============================
-
   const [secretClicks, setSecretClicks] = useState(0);
 
   const navigate = useNavigate();
@@ -45,7 +41,6 @@ export default function Login() {
   // ==============================
   // LOAD PARTNER
   // ==============================
-
   useEffect(() => {
     fetch('/partner.json')
       .then((res) => res.json())
@@ -62,7 +57,6 @@ export default function Login() {
   // ==============================
   // SECRET TEACHER PORTAL
   // ==============================
-
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
@@ -71,44 +65,30 @@ export default function Login() {
     }
 
     const handleKeyDown = (e) => {
-      if (
-        e.ctrlKey &&
-        e.shiftKey &&
-        e.key.toLowerCase() === 't'
-      ) {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
         e.preventDefault();
-
         resetForm();
         setView('teacher');
-
         toast.success('🔓 تم فتح بوابة المعلم');
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
-
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   // ==============================
   // SECRET LOGO CLICKS
   // ==============================
-
   const handleLogoClick = () => {
     const newCount = secretClicks + 1;
-
     setSecretClicks(newCount);
 
     if (newCount >= 5) {
       setSecretClicks(0);
-
       resetForm();
       setView('teacher');
-
       toast.success('🔓 تم فتح بوابة المعلم');
-
       return;
     }
 
@@ -120,24 +100,13 @@ export default function Login() {
   // ==============================
   // RESET FORM
   // ==============================
-
   const resetForm = () => {
     setStudentId('');
     setFullName('');
     setBranch('');
     setPhone('');
-
     setTeacherUsername('');
     setTeacherPassword('');
-  };
-
-  // ==============================
-  // VIEW NAVIGATION
-  // ==============================
-
-  const goToTeacherLogin = () => {
-    resetForm();
-    setView('teacher');
   };
 
   const goToStudentLogin = () => {
@@ -152,22 +121,18 @@ export default function Login() {
   // ==============================
   // STUDENT LOGIN
   // ==============================
-
   const handleStudentLogin = async (e) => {
     e.preventDefault();
-
     const id = studentId.trim();
 
     if (!id) {
       toast.error('الرجاء إدخال رقم الهوية');
       return;
     }
-
     if (!/^\d+$/.test(id)) {
       toast.error('رقم الهوية يجب أن يتكون من أرقام فقط');
       return;
     }
-
     if (id.length !== 9) {
       toast.error('رقم الهوية يجب أن يكون 9 أرقام');
       return;
@@ -185,53 +150,33 @@ export default function Login() {
       if (!profile) {
         setView('signup');
         setLoading(false);
-
-        toast(
-          'رقم الهوية غير مسجل. أكمل بياناتك لإنشاء حساب',
-          {
-            icon: '📝',
-          }
-        );
-
+        toast('رقم الهوية غير مسجل. أكمل بياناتك لإنشاء حساب', { icon: '📝' });
         return;
       }
 
       if (profile.role !== 'student') {
-        toast.error(
-          'هذا الحساب غير مصرح له بالدخول كطالب'
-        );
-
+        toast.error('هذا الحساب غير مصرح له بالدخول كطالب');
         setLoading(false);
         return;
       }
 
       const email = `${id}@${EMAIL_DOMAIN}`;
-
-      const { data, error } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password: id,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password: id,
+      });
 
       if (error || !data.user) {
-        toast.error(
-          'فشل تسجيل الدخول. تواصل مع الإدارة'
-        );
-
+        toast.error('فشل تسجيل الدخول. تواصل مع الإدارة');
         setLoading(false);
         return;
       }
 
       toast.success('تم تسجيل الدخول بنجاح');
-
-      navigate('/dashboard', {
-        replace: true,
-      });
+      navigate('/dashboard', { replace: true });
     } catch (err) {
       console.error(err);
-
       toast.error('حدث خطأ غير متوقع');
-
       setLoading(false);
     }
   };
@@ -239,56 +184,32 @@ export default function Login() {
   // ==============================
   // STUDENT SIGNUP
   // ==============================
-
   const handleStudentSignup = async (e) => {
     e.preventDefault();
-
     const id = studentId.trim();
 
     if (!id) {
       toast.error('رقم الهوية مطلوب');
       return;
     }
-
     if (!/^\d{9}$/.test(id)) {
-      toast.error(
-        'رقم الهوية يجب أن يكون 9 أرقام'
-      );
+      toast.error('رقم الهوية يجب أن يكون 9 أرقام');
       return;
     }
-
-    if (
-      !fullName.trim() ||
-      fullName.trim().split(/\s+/).length < 4
-    ) {
-      toast.error(
-        'الرجاء إدخال الاسم الرباعي كاملاً'
-      );
-
+    if (!fullName.trim() || fullName.trim().split(/\s+/).length < 4) {
+      toast.error('الرجاء إدخال الاسم الرباعي كاملاً');
       return;
     }
-
     if (!branch) {
-      toast.error(
-        'الرجاء اختيار الفرع الدراسي'
-      );
-
+      toast.error('الرجاء اختيار الفرع الدراسي');
       return;
     }
-
     if (!phone.trim()) {
-      toast.error(
-        'الرجاء إدخال رقم الجوال'
-      );
-
+      toast.error('الرجاء إدخال رقم الجوال');
       return;
     }
-
     if (!/^(059|056)\d{7}$/.test(phone.trim())) {
-      toast.error(
-        'رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)'
-      );
-
+      toast.error('رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)');
       return;
     }
 
@@ -296,29 +217,20 @@ export default function Login() {
 
     try {
       const email = `${id}@${EMAIL_DOMAIN}`;
-
-      const { data: existingProfile } =
-        await supabase
-          .from('profiles')
-          .select('id')
-          .eq('nationalID', id)
-          .maybeSingle();
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('nationalID', id)
+        .maybeSingle();
 
       if (existingProfile) {
-        toast.error(
-          'رقم الهوية مسجل مسبقاً. جرب تسجيل الدخول'
-        );
-
+        toast.error('رقم الهوية مسجل مسبقاً. جرب تسجيل الدخول');
         setView('student');
         setLoading(false);
-
         return;
       }
 
-      const {
-        data: signUpData,
-        error: signUpError,
-      } = await supabase.auth.signUp({
+      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password: id,
       });
@@ -328,66 +240,41 @@ export default function Login() {
           signUpError.message?.includes('already') ||
           signUpError.message?.includes('duplicate')
         ) {
-          toast.error(
-            'هذا الحساب موجود بالفعل. جرب تسجيل الدخول'
-          );
-
+          toast.error('هذا الحساب موجود بالفعل. جرب تسجيل الدخول');
           setView('student');
           setLoading(false);
-
           return;
         }
-
         throw signUpError;
       }
 
       if (!signUpData.user) {
-        throw new Error(
-          'فشل إنشاء الحساب - لم يتم إنشاء المستخدم'
-        );
+        throw new Error('فشل إنشاء الحساب - لم يتم إنشاء المستخدم');
       }
 
-      const { error: profileError } =
-        await supabase.from('profiles').insert([
-          {
-            id: signUpData.user.id,
-            nationalID: id,
-            name: fullName.trim(),
-            role: 'student',
-            branch: branch,
-            phone: phone.trim(),
-          },
-        ]);
+      const { error: profileError } = await supabase.from('profiles').insert([
+        {
+          id: signUpData.user.id,
+          nationalID: id,
+          name: fullName.trim(),
+          role: 'student',
+          branch: branch,
+          phone: phone.trim(),
+        },
+      ]);
 
       if (profileError) {
         await supabase.auth.signOut();
-
-        throw new Error(
-          'فشل حفظ البيانات الشخصية: ' +
-            profileError.message
-        );
+        throw new Error('فشل حفظ البيانات الشخصية: ' + profileError.message);
       }
 
-      toast.success(
-        'تم إنشاء حسابك بنجاح! جاري تحويلك...'
-      );
-
+      toast.success('تم إنشاء حسابك بنجاح! جاري تحويلك...');
       setTimeout(() => {
-        navigate('/dashboard', {
-          replace: true,
-        });
+        navigate('/dashboard', { replace: true });
       }, 800);
     } catch (err) {
-      console.error(
-        'Signup error:',
-        err
-      );
-
-      toast.error(
-        'فشل إنشاء الحساب: ' +
-          (err.message || 'خطأ غير معروف')
-      );
-
+      console.error('Signup error:', err);
+      toast.error('فشل إنشاء الحساب: ' + (err.message || 'خطأ غير معروف'));
       setLoading(false);
     }
   };
@@ -395,1872 +282,660 @@ export default function Login() {
   // ==============================
   // TEACHER LOGIN
   // ==============================
-
   const handleTeacherLogin = async (e) => {
     e.preventDefault();
-
-    const username =
-      teacherUsername.trim();
-
-    const password =
-      teacherPassword;
+    const username = teacherUsername.trim();
+    const password = teacherPassword;
 
     if (!username || !password) {
-      toast.error(
-        'الرجاء إدخال اسم المستخدم وكلمة المرور'
-      );
-
+      toast.error('الرجاء إدخال اسم المستخدم وكلمة المرور');
       return;
     }
 
     setLoading(true);
-
-    const email =
-      `${username}@${EMAIL_DOMAIN}`;
+    const email = `${username}@${EMAIL_DOMAIN}`;
 
     try {
-      const {
-        data,
-        error,
-      } =
-        await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
       if (error || !data.user) {
-        toast.error(
-          'اسم المستخدم أو كلمة المرور غير صحيحة'
-        );
-
+        toast.error('اسم المستخدم أو كلمة المرور غير صحيحة');
         setLoading(false);
         return;
       }
 
-      const { data: profile } =
-        await supabase
-          .from('profiles')
-          .select('role')
-          .eq('id', data.user.id)
-          .maybeSingle();
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', data.user.id)
+        .maybeSingle();
 
       if (profile?.role !== 'teacher') {
         await supabase.auth.signOut();
-
-        toast.error(
-          'هذا الحساب غير مصرح له بالدخول كمعلم'
-        );
-
+        toast.error('هذا الحساب غير مصرح له بالدخول كمعلم');
         setLoading(false);
-
         return;
       }
 
       toast.success('مرحباً بك');
-
-      navigate('/teacher', {
-        replace: true,
-      });
+      navigate('/teacher', { replace: true });
     } catch (err) {
       console.error(err);
-
-      toast.error(
-        'حدث خطأ غير متوقع'
-      );
-
+      toast.error('حدث خطأ غير متوقع');
       setLoading(false);
     }
   };
 
-  // =========================================================
-  // UI
-  // =========================================================
-
   return (
     <div className="login-page">
-
-      {/* =====================================================
-          BACKGROUND
-      ====================================================== */}
-
-      <div className="background-layer">
-
-        <div className="background-circle circle-left" />
-
-        <div className="background-circle circle-center" />
-
-        <div className="background-circle circle-bottom" />
-
-        <div className="background-shape shape-top-left" />
-
-        <div className="background-shape shape-bottom-right" />
-
+      {/* خلفية الصفحة */}
+      <div className="bg-decorations">
+        <div className="bg-circle circle-top-left" />
+        <div className="bg-circle circle-center-right" />
       </div>
 
+      {/* المنطقة العلوية (صورة المعلم والأسماء) */}
+      <div className="hero-section">
+        {/* معلومات المعلم الجانبية */}
+        <div className="teacher-info">
+          <h1 className="teacher-name">أ. محمد أبو سليمان</h1>
+          {/* مسحة الفرشاة الزرقاء تحت الاسم */}
+          <div className="brush-stroke-wrapper">
+            <svg viewBox="0 0 140 12" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M3 8C35 2 105 1 137 7C110 4 50 4 3 8Z" fill="#3182ce" />
+            </svg>
+          </div>
+          <span className="teacher-subtitle">English Teacher</span>
+        </div>
 
-      {/* =====================================================
-          TOP VISUAL AREA
-          EVERYTHING HERE IS BEHIND THE LOGIN CARD
-      ====================================================== */}
+        {/* المقولة بخط اليد جهة اليمين */}
+        <div className="motto-box">
+          <p>Better</p>
+          <p>English</p>
+          <p>Bigger</p>
+          <p>Dreams</p>
+          <svg className="motto-underline" viewBox="0 0 60 8" fill="none">
+            <path d="M2 5 C 20 2, 40 2, 58 5" stroke="#90cdf4" strokeWidth="2.5" strokeLinecap="round" />
+          </svg>
+        </div>
 
-      <div className="visual-layer">
-
-        {/* Teacher image */}
-
-        <div
-          className="teacher-image-layer"
-          onClick={handleLogoClick}
-          title="English Teacher"
-        >
+        {/* صورة المعلم */}
+        <div className="teacher-photo-wrapper" onClick={handleLogoClick}>
           <img
             src={TEACHER_IMAGE}
             alt="أ. محمد أبو سليمان"
-            className="teacher-image"
+            className="teacher-photo"
             draggable={false}
           />
         </div>
-
-
-        {/* Teacher information */}
-
-        <div className="teacher-information">
-
-          <div className="teacher-name">
-            أ. محمد أبو سليمان
-          </div>
-
-          <div className="teacher-line" />
-
-          <div className="teacher-role">
-            English Teacher
-          </div>
-
-        </div>
-
-
-        {/* Motto */}
-
-        <div className="teacher-motto">
-          <div>Better</div>
-          <div>English</div>
-          <div>Bigger</div>
-          <div>Dreams</div>
-
-          <div className="motto-line" />
-        </div>
-
       </div>
 
-
-      {/* =====================================================
-          LOGIN CARD
-          THIS CARD IS ABOVE THE TEACHER IMAGE
-      ====================================================== */}
-
+      {/* كارت تسجيل الدخول الأبيض */}
       <main className="auth-card">
-
         {/* ===================================================
             STUDENT LOGIN
         ==================================================== */}
-
         {view === 'student' && (
           <>
+            <h2 className="card-title">تسجيل الدخول</h2>
 
-            <div className="card-header">
-
-              <h1 className="card-title">
-                تسجيل الدخول
-              </h1>
-
-            </div>
-
-
-            <form
-              onSubmit={handleStudentLogin}
-              className="auth-form"
-            >
-
+            <form onSubmit={handleStudentLogin} className="auth-form">
               <div className="input-group">
-
-                <label className="input-label">
-
+                <div className="label-row">
+                  <span className="input-label">رقم الهوية</span>
                   <svg
                     className="label-icon"
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
                     strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
                   >
                     <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle
-                      cx="12"
-                      cy="7"
-                      r="4"
-                    />
+                    <circle cx="12" cy="7" r="4" />
                   </svg>
-
-                  <span>
-                    رقم الهوية
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) =>
-                      setStudentId(
-                        e.target.value.replace(
-                          /\s/g,
-                          ''
-                        )
-                      )
-                    }
-                    placeholder="أدخل رقم الهوية"
-                    maxLength={9}
-                    required
-                    className="auth-input"
-                    style={{
-                      direction: 'ltr',
-                      textAlign: 'right',
-                    }}
-                  />
-
                 </div>
 
+                <input
+                  type="text"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                  placeholder="أدخل رقم الهوية"
+                  maxLength={9}
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={loading}
-              >
-
-                {loading
-                  ? 'جاري التحميل...'
-                  : 'دخول الاختبار'}
-
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'جاري التحميل...' : 'دخول الاختبار'}
               </button>
-
             </form>
 
-
             <div className="toggle-view">
-
-              <span className="toggle-muted">
-                ليس لديك حساب؟
-              </span>
-
-              <button
-                type="button"
-                onClick={goToSignup}
-                className="toggle-link"
-              >
+              <span className="toggle-muted">ليس لديك حساب؟</span>
+              <button type="button" onClick={goToSignup} className="toggle-link">
                 إنشاء حساب جديد
               </button>
-
             </div>
-
           </>
         )}
-
 
         {/* ===================================================
             SIGN UP
         ==================================================== */}
-
         {view === 'signup' && (
           <>
-
             <div className="card-header">
-
-              <h1 className="card-title">
-                إنشاء حساب جديد
-              </h1>
-
-              <div className="card-subtitle">
-                أدخل بياناتك للبدء في الاختبارات الإلكترونية
-              </div>
-
+              <h2 className="card-title">إنشاء حساب جديد</h2>
+              <p className="card-subtitle">أدخل بياناتك للبدء في الاختبارات الإلكترونية</p>
             </div>
 
-
-            <form
-              onSubmit={handleStudentSignup}
-              className="auth-form signup-form"
-            >
-
-              {/* NATIONAL ID */}
-
+            <form onSubmit={handleStudentSignup} className="auth-form signup-form">
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect
-                      x="3"
-                      y="4"
-                      width="18"
-                      height="16"
-                      rx="2"
-                    />
-
-                    <line
-                      x1="7"
-                      y1="9"
-                      x2="17"
-                      y2="9"
-                    />
-
-                    <line
-                      x1="7"
-                      y1="13"
-                      x2="17"
-                      y2="13"
-                    />
-
-                    <line
-                      x1="7"
-                      y1="17"
-                      x2="13"
-                      y2="17"
-                    />
-                  </svg>
-
-                  <span>
-                    رقم الهوية
-                  </span>
-
-                  <span className="required-star">
-                    *
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="text"
-                    value={studentId}
-                    onChange={(e) =>
-                      setStudentId(
-                        e.target.value.replace(
-                          /\s/g,
-                          ''
-                        )
-                      )
-                    }
-                    placeholder="مثال: 123456789"
-                    maxLength={9}
-                    required
-                    className="auth-input"
-                    style={{
-                      direction: 'ltr',
-                      textAlign: 'right',
-                    }}
-                  />
-
+                <div className="label-row">
+                  <span className="input-label">رقم الهوية *</span>
                 </div>
-
+                <input
+                  type="text"
+                  value={studentId}
+                  onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                  placeholder="مثال: 123456789"
+                  maxLength={9}
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              {/* FULL NAME */}
-
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle
-                      cx="12"
-                      cy="7"
-                      r="4"
-                    />
-                  </svg>
-
-                  <span>
-                    الاسم الرباعي
-                  </span>
-
-                  <span className="required-star">
-                    *
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="text"
-                    value={fullName}
-                    onChange={(e) =>
-                      setFullName(
-                        e.target.value
-                      )
-                    }
-                    placeholder="أدخل الاسم الرباعي"
-                    required
-                    className="auth-input"
-                  />
-
+                <div className="label-row">
+                  <span className="input-label">الاسم الرباعي *</span>
                 </div>
-
+                <input
+                  type="text"
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="أدخل الاسم الرباعي"
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              {/* BRANCH */}
-
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M22 10v6" />
-                    <path d="M2 10l10-5 10 5-10 5z" />
-                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
-                  </svg>
-
-                  <span>
-                    الفرع الدراسي
-                  </span>
-
-                  <span className="required-star">
-                    *
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <select
-                    value={branch}
-                    onChange={(e) =>
-                      setBranch(
-                        e.target.value
-                      )
-                    }
-                    required
-                    className="auth-input"
-                  >
-
-                    <option
-                      value=""
-                      disabled
-                    >
-                      — اختر الفرع —
-                    </option>
-
-                    <option value="العلمي">
-                      العلمي
-                    </option>
-
-                    <option value="الأدبي">
-                      الأدبي
-                    </option>
-
-                  </select>
-
+                <div className="label-row">
+                  <span className="input-label">الفرع الدراسي *</span>
                 </div>
-
+                <select
+                  value={branch}
+                  onChange={(e) => setBranch(e.target.value)}
+                  required
+                  className="auth-input select-input"
+                >
+                  <option value="" disabled>— اختر الفرع —</option>
+                  <option value="العلمي">العلمي</option>
+                  <option value="الأدبي">الأدبي</option>
+                </select>
               </div>
 
-
-              {/* PHONE */}
-
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect
-                      x="5"
-                      y="2"
-                      width="14"
-                      height="20"
-                      rx="2"
-                    />
-
-                    <line
-                      x1="12"
-                      y1="18"
-                      x2="12.01"
-                      y2="18"
-                    />
-                  </svg>
-
-                  <span>
-                    رقم الجوال
-                  </span>
-
-                  <span className="required-star">
-                    *
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="tel"
-                    value={phone}
-                    onChange={(e) =>
-                      setPhone(
-                        e.target.value.replace(
-                          /\s/g,
-                          ''
-                        )
-                      )
-                    }
-                    placeholder="059xxxxxxx"
-                    maxLength={10}
-                    required
-                    className="auth-input"
-                    style={{
-                      direction: 'ltr',
-                      textAlign: 'right',
-                    }}
-                  />
-
+                <div className="label-row">
+                  <span className="input-label">رقم الجوال *</span>
                 </div>
-
+                <input
+                  type="tel"
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value.replace(/\s/g, ''))}
+                  placeholder="059xxxxxxx"
+                  maxLength={10}
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={loading}
-              >
-
-                {loading ? (
-                  <>
-                    <span className="btn-spinner" />
-                    جاري إنشاء الحساب...
-                  </>
-                ) : (
-                  'إنشاء الحساب'
-                )}
-
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
               </button>
-
             </form>
 
-
             <div className="toggle-view">
-
-              <span className="toggle-muted">
-                لديك حساب بالفعل؟
-              </span>
-
-              <button
-                type="button"
-                onClick={goToStudentLogin}
-                className="toggle-link"
-              >
+              <span className="toggle-muted">لديك حساب بالفعل؟</span>
+              <button type="button" onClick={goToStudentLogin} className="toggle-link">
                 تسجيل الدخول
               </button>
-
             </div>
-
           </>
         )}
-
 
         {/* ===================================================
             TEACHER LOGIN
         ==================================================== */}
-
         {view === 'teacher' && (
           <>
-
             <div className="card-header">
-
-              <h1 className="card-title">
-                بوابة المعلم
-              </h1>
-
-              <div className="card-subtitle">
-                تسجيل الدخول إلى لوحة التحكم
-              </div>
-
+              <h2 className="card-title">بوابة المعلم</h2>
+              <p className="card-subtitle">تسجيل الدخول إلى لوحة التحكم</p>
             </div>
 
-
-            <form
-              onSubmit={handleTeacherLogin}
-              className="auth-form"
-            >
-
-              {/* USERNAME */}
-
+            <form onSubmit={handleTeacherLogin} className="auth-form">
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-
-                    <circle
-                      cx="12"
-                      cy="7"
-                      r="4"
-                    />
-                  </svg>
-
-                  <span>
-                    اسم المستخدم
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="text"
-                    value={teacherUsername}
-                    onChange={(e) =>
-                      setTeacherUsername(
-                        e.target.value
-                      )
-                    }
-                    placeholder="اسم المستخدم"
-                    required
-                    autoComplete="username"
-                    className="auth-input"
-                    style={{
-                      direction: 'ltr',
-                      textAlign: 'right',
-                    }}
-                  />
-
+                <div className="label-row">
+                  <span className="input-label">اسم المستخدم</span>
                 </div>
-
+                <input
+                  type="text"
+                  value={teacherUsername}
+                  onChange={(e) => setTeacherUsername(e.target.value)}
+                  placeholder="اسم المستخدم"
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              {/* PASSWORD */}
-
               <div className="input-group">
-
-                <label className="input-label">
-
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <rect
-                      x="3"
-                      y="11"
-                      width="18"
-                      height="11"
-                      rx="2"
-                    />
-
-                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-                  </svg>
-
-                  <span>
-                    كلمة المرور
-                  </span>
-
-                </label>
-
-
-                <div className="input-wrapper">
-
-                  <input
-                    type="password"
-                    value={teacherPassword}
-                    onChange={(e) =>
-                      setTeacherPassword(
-                        e.target.value
-                      )
-                    }
-                    placeholder="•••••••"
-                    required
-                    autoComplete="current-password"
-                    className="auth-input"
-                  />
-
+                <div className="label-row">
+                  <span className="input-label">كلمة المرور</span>
                 </div>
-
+                <input
+                  type="password"
+                  value={teacherPassword}
+                  onChange={(e) => setTeacherPassword(e.target.value)}
+                  placeholder="•••••••"
+                  required
+                  className="auth-input"
+                />
               </div>
 
-
-              <button
-                type="submit"
-                className="submit-btn"
-                disabled={loading}
-              >
-
-                {loading
-                  ? 'جاري التحقق...'
-                  : 'دخول لوحة المعلم'}
-
+              <button type="submit" className="submit-btn" disabled={loading}>
+                {loading ? 'جاري التحقق...' : 'دخول لوحة المعلم'}
               </button>
-
             </form>
 
-
             <div className="toggle-view">
-
-              <button
-                type="button"
-                onClick={goToStudentLogin}
-                className="toggle-link"
-              >
+              <button type="button" onClick={goToStudentLogin} className="toggle-link">
                 العودة لتسجيل الدخول
               </button>
-
             </div>
-
           </>
         )}
-
       </main>
 
-
-      {/* =====================================================
-          PARTNER
-      ====================================================== */}
-
+      {/* الشريك التجاري إن وجد */}
       {(partnerLabel || partnerName) && (
         <div className="partner-section">
-
-          {partnerLabel && (
-            <div className="partner-label">
-              {partnerLabel}
-            </div>
-          )}
-
-          {partnerName && (
-            <div className="partner-name">
-              {partnerName}
-            </div>
-          )}
-
+          {partnerLabel && <div className="partner-label">{partnerLabel}</div>}
+          {partnerName && <div className="partner-name">{partnerName}</div>}
         </div>
       )}
 
-
-      {/* =====================================================
-          FOOTER
-      ====================================================== */}
-
-      <div className="login-footer">
+      {/* ذيل الصفحة السفلي المطابق للصورة */}
+      <footer className="page-footer">
+        <p className="developer-info">تطوير : نادر محمد أبو سليمان</p>
+        <p className="copyright-info">© Developed by Nader Sulieman</p>
         <Footer />
-      </div>
-
+      </footer>
 
       {/* =====================================================
-          CSS
+          CSS STYLES
       ====================================================== */}
-
       <style>{`
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Caveat:wght@600;700&display=swap');
 
-        /* =====================================================
-           FONT + RESET
-        ====================================================== */
-
-        @import url(
-          'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap'
-        );
-
-        :root {
-          color-scheme: light only;
-        }
-
-        *,
-        *::before,
-        *::after {
+        *, *::before, *::after {
           box-sizing: border-box;
         }
 
-        html,
-        body,
-        #root {
+        html, body, #root {
           margin: 0;
           padding: 0;
           width: 100%;
           min-height: 100%;
         }
 
-        html {
-          background: #e9f4ff;
-        }
-
-        body {
-          margin: 0;
-          padding: 0;
-          font-family: 'Cairo', sans-serif;
-          background: #e9f4ff;
-          color: #173a61;
-          overflow-x: hidden;
-        }
-
-        input,
-        select,
-        button,
-        textarea {
-          font-family: 'Cairo', sans-serif;
-        }
-
-
-        /* =====================================================
-           MAIN PAGE
-           Reference design: 864 x 1536
-        ====================================================== */
-
         .login-page {
-          --design-width: 864;
-
-          position: relative;
-
-          width: 100%;
+          direction: rtl;
+          font-family: 'Cairo', sans-serif;
           min-height: 100vh;
-
+          width: 100%;
+          max-width: 480px;
+          margin: 0 auto;
+          background: linear-gradient(180deg, #edf5fd 0%, #e1effc 40%, #d5e7f8 100%);
+          position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
-
-          direction: rtl;
-
+          justify-content: space-between;
+          padding-bottom: 24px;
           overflow-x: hidden;
-
-          background:
-            linear-gradient(
-              145deg,
-              #f0f8ff 0%,
-              #e8f4ff 42%,
-              #deefff 100%
-            );
-
-          isolation: isolate;
+          box-shadow: 0 0 50px rgba(0,0,0,0.05);
         }
 
-
-        /* =====================================================
-           BACKGROUND
-        ====================================================== */
-
-        .background-layer {
+        /* الخلفية والدوائر الشفافة */
+        .bg-decorations {
           position: absolute;
           inset: 0;
-
-          width: 100%;
-          min-height: 100%;
-
-          overflow: hidden;
-
           pointer-events: none;
-
+          overflow: hidden;
           z-index: 0;
         }
 
-
-        .background-circle {
+        .bg-circle {
           position: absolute;
-
           border-radius: 50%;
-
-          pointer-events: none;
+          background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 70%);
         }
 
-
-        .circle-left {
-          width: 115vw;
-          height: 115vw;
-
-          left: -78vw;
-          top: 14vw;
-
-          background:
-            radial-gradient(
-              circle,
-              rgba(255,255,255,0.72) 0%,
-              rgba(255,255,255,0.36) 42%,
-              rgba(255,255,255,0) 72%
-            );
+        .circle-top-left {
+          width: 320px;
+          height: 320px;
+          top: -100px;
+          left: -120px;
         }
 
-
-        .circle-center {
-          width: 72vw;
-          height: 72vw;
-
-          left: 34vw;
-          top: 35vw;
-
-          background:
-            radial-gradient(
-              circle,
-              rgba(137,186,235,0.12) 0%,
-              rgba(137,186,235,0.04) 50%,
-              rgba(137,186,235,0) 75%
-            );
+        .circle-center-right {
+          width: 280px;
+          height: 280px;
+          top: 180px;
+          right: -100px;
         }
 
-
-        .circle-bottom {
-          width: 100vw;
-          height: 100vw;
-
-          right: -74vw;
-          bottom: -33vw;
-
-          background:
-            radial-gradient(
-              circle,
-              rgba(255,255,255,0.58) 0%,
-              rgba(255,255,255,0.2) 45%,
-              rgba(255,255,255,0) 70%
-            );
-        }
-
-
-        .background-shape {
-          position: absolute;
-
-          pointer-events: none;
-        }
-
-
-        .shape-top-left {
-          width: 72vw;
-          height: 72vw;
-
-          left: -55vw;
-          top: -40vw;
-
-          border-radius: 50%;
-
-          border: 1px solid rgba(255,255,255,0.32);
-        }
-
-
-        .shape-bottom-right {
-          width: 110vw;
-          height: 45vw;
-
-          right: -65vw;
-          bottom: 8vw;
-
-          transform: rotate(-38deg);
-
-          background:
-            linear-gradient(
-              135deg,
-              rgba(255,255,255,0.2),
-              rgba(255,255,255,0)
-            );
-        }
-
-
-        /* =====================================================
-           VISUAL LAYER
-           IMPORTANT:
-           This entire layer sits BEHIND the white card.
-        ====================================================== */
-
-        .visual-layer {
-          position: absolute;
-
-          top: 0;
-          left: 0;
-
+        /* القسم العلوي (الصورة والأسماء) */
+        .hero-section {
+          position: relative;
           width: 100%;
-
-          height: 80vw;
-
-          z-index: 2;
-
-          pointer-events: none;
+          height: 340px;
+          z-index: 1;
         }
 
-
-        /* =====================================================
-           TEACHER IMAGE
-        ====================================================== */
-
-        .teacher-image-layer {
+        /* معلومات المعلم الجانبية اليسرى */
+        .teacher-info {
           position: absolute;
-
-          top: 4.3vw;
-          right: -2.5vw;
-
-          width: 70.5vw;
-          height: 76vw;
-
+          top: 75px;
+          left: 24px;
           display: flex;
-
-          align-items: flex-end;
-          justify-content: center;
-
+          flex-direction: column;
+          align-items: flex-start;
           z-index: 3;
-
-          pointer-events: auto;
-
-          cursor: default;
-
-          user-select: none;
         }
-
-
-        .teacher-image {
-          position: absolute;
-
-          right: 0;
-          bottom: 0;
-
-          width: 100%;
-          height: 100%;
-
-          object-fit: contain;
-          object-position: center bottom;
-
-          display: block;
-
-          user-select: none;
-
-          pointer-events: auto;
-
-          -webkit-user-drag: none;
-
-          filter:
-            drop-shadow(
-              0 18px 28px
-              rgba(47,82,120,0.10)
-            );
-        }
-
-
-        /* =====================================================
-           TEACHER NAME
-        ====================================================== */
-
-        .teacher-information {
-          position: absolute;
-
-          top: 35.3vw;
-          left: 8.5vw;
-
-          width: 43vw;
-
-          z-index: 5;
-
-          direction: rtl;
-
-          text-align: right;
-
-          pointer-events: none;
-        }
-
 
         .teacher-name {
-          color: #173b64;
-
-          font-size: 6.1vw;
-
-          line-height: 1.25;
-
+          margin: 0;
+          font-size: 23px;
           font-weight: 800;
-
-          letter-spacing: -0.45px;
-
-          white-space: nowrap;
+          color: #0d3660;
+          letter-spacing: -0.3px;
+          line-height: 1.1;
         }
 
-
-        .teacher-line {
-          width: 17.2vw;
-          height: 0.8vw;
-
-          margin-top: 1.4vw;
-
-          margin-right: 0.5vw;
-
-          border-radius: 999px;
-
-          background:
-            linear-gradient(
-              90deg,
-              #3d83d3 0%,
-              #5e9ce0 100%
-            );
-
-          transform:
-            rotate(-3deg);
+        .brush-stroke-wrapper {
+          width: 125px;
+          height: 10px;
+          margin-top: 3px;
+          margin-bottom: 8px;
         }
 
+        .brush-stroke-wrapper svg {
+          width: 100%;
+          height: 100%;
+        }
 
-        .teacher-role {
-          margin-top: 2.6vw;
-
-          color: #5f91c6;
-
-          font-family:
-            Arial,
-            sans-serif;
-
-          font-size: 4vw;
-
+        .teacher-subtitle {
+          font-family: Arial, sans-serif;
+          font-size: 13px;
+          color: #7b9ebc;
+          letter-spacing: 2px;
           font-weight: 500;
-
-          line-height: 1;
-
-          letter-spacing: 0.8vw;
-
-          direction: ltr;
-
-          text-align: left;
-
-          white-space: nowrap;
         }
 
-
-        /* =====================================================
-           MOTTO
-        ====================================================== */
-
-        .teacher-motto {
+        /* المقولة المائلة بخط اليد */
+        .motto-box {
           position: absolute;
-
-          top: 10.8vw;
-          right: 7vw;
-
-          z-index: 2;
-
-          color: rgba(
-            67,
-            125,
-            186,
-            0.27
-          );
-
-          font-family:
-            Arial,
-            sans-serif;
-
-          font-size: 4.6vw;
-
-          font-weight: 600;
-
-          line-height: 1.12;
-
-          letter-spacing: 0.08vw;
-
-          direction: ltr;
-
+          top: 32px;
+          right: 28px;
           text-align: left;
-
-          transform: rotate(-7deg);
-
-          pointer-events: none;
+          direction: ltr;
+          transform: rotate(-10deg);
+          font-family: 'Caveat', cursive;
+          color: rgba(135, 175, 212, 0.55);
+          font-size: 21px;
+          line-height: 1.05;
+          font-weight: 700;
+          z-index: 2;
         }
 
-
-        .motto-line {
-          width: 13vw;
-          height: 0.55vw;
-
-          margin-top: 1.2vw;
-          margin-left: 0.5vw;
-
-          border-radius: 99px;
-
-          background:
-            rgba(
-              69,
-              130,
-              194,
-              0.23
-            );
-
-          transform: rotate(-2deg);
+        .motto-box p {
+          margin: 0;
         }
 
+        .motto-underline {
+          width: 50px;
+          height: 6px;
+          margin-top: 2px;
+        }
 
-        /* =====================================================
-           AUTH CARD
-           
-           Reference:
-           card begins around 44.7% of 1536px
-           = 79.3vw when using 864px reference width.
-           
-           This is why it OVERLAPS the teacher.
-        ====================================================== */
+        /* صورة المعلم */
+        .teacher-photo-wrapper {
+          position: absolute;
+          top: 15px;
+          right: 5px;
+          width: 290px;
+          height: 340px;
+          z-index: 2;
+          cursor: pointer;
+        }
 
+        .teacher-photo {
+          width: 100%;
+          height: 100%;
+          object-fit: contain;
+          object-position: bottom right;
+          filter: drop-shadow(0 10px 15px rgba(0,0,0,0.03));
+        }
+
+        /* كارت تسجيل الدخول */
         .auth-card {
           position: relative;
-
-          width: 88.4vw;
-
-          max-width: none;
-
-          margin-top: 79.35vw;
-
-          padding:
-            6.6vw
-            4.25vw
-            5.2vw;
-
-          background:
-            rgba(
-              255,
-              255,
-              255,
-              0.97
-            );
-
-          border-radius: 5.2vw;
-
-          border:
-            1px solid
-            rgba(
-              255,
-              255,
-              255,
-              0.9
-            );
-
-          box-shadow:
-            0 2.5vw 6.5vw
-            rgba(
-              49,
-              91,
-              133,
-              0.10
-            ),
-
-            0 0.8vw 2.2vw
-            rgba(
-              49,
-              91,
-              133,
-              0.045
-            );
-
-          backdrop-filter:
-            blur(14px);
-
-          -webkit-backdrop-filter:
-            blur(14px);
-
-          z-index: 20;
-
-          flex-shrink: 0;
+          z-index: 10;
+          width: calc(100% - 40px);
+          margin-top: -30px;
+          background: #ffffff;
+          border-radius: 28px;
+          padding: 32px 24px;
+          box-shadow: 0 12px 35px rgba(22, 60, 100, 0.08);
+          display: flex;
+          flex-direction: column;
+          align-items: center;
         }
-
-
-        /* =====================================================
-           CARD HEADER
-        ====================================================== */
 
         .card-header {
-          width: 100%;
-
           text-align: center;
-
-          margin: 0 0 5.5vw;
+          margin-bottom: 20px;
+          width: 100%;
         }
-
 
         .card-title {
-          margin: 0;
-
-          color: #173c67;
-
-          font-size: 7.1vw;
-
-          line-height: 1.25;
-
+          margin: 0 0 20px 0;
+          font-size: 24px;
           font-weight: 800;
-
-          letter-spacing: -0.25vw;
+          color: #0f3c68;
+          text-align: center;
         }
 
-
         .card-subtitle {
-          margin-top: 1.7vw;
-
-          color: #899caf;
-
-          font-size: 3.1vw;
-
-          line-height: 1.6;
-
+          margin: 6px 0 0 0;
+          font-size: 13px;
+          color: #7b91a7;
           font-weight: 500;
         }
 
-
-        /* =====================================================
-           FORM
-        ====================================================== */
-
         .auth-form {
-          display: flex;
-
-          flex-direction: column;
-
           width: 100%;
-
-          gap: 4.2vw;
+          display: flex;
+          flex-direction: column;
+          gap: 18px;
         }
-
 
         .signup-form {
-          gap: 3.4vw;
+          gap: 14px;
         }
-
 
         .input-group {
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
           width: 100%;
         }
 
-
-        /* =====================================================
-           LABEL
-        ====================================================== */
+        .label-row {
+          display: flex;
+          align-items: center;
+          justify-content: flex-start;
+          gap: 6px;
+        }
 
         .input-label {
-          display: flex;
-
-          align-items: center;
-
-          justify-content: flex-start;
-
-          gap: 1.55vw;
-
-          margin-bottom: 2.1vw;
-
-          color: #536a83;
-
-          font-size: 3.55vw;
-
+          font-size: 15px;
           font-weight: 700;
-
-          line-height: 1.4;
+          color: #123e6b;
         }
-
 
         .label-icon {
-          width: 5.5vw;
-          height: 5.5vw;
-
-          color: #3e8bd5;
-
-          flex-shrink: 0;
+          width: 18px;
+          height: 18px;
+          color: #2b77e5;
         }
-
-
-        .required-star {
-          color: #ef5350;
-
-          font-weight: 800;
-        }
-
-
-        /* =====================================================
-           INPUT
-        ====================================================== */
-
-        .input-wrapper {
-          width: 100%;
-        }
-
 
         .auth-input {
           width: 100%;
-
-          height: 13.15vw;
-
-          padding:
-            0 4.1vw;
-
-          border:
-            1.5px solid
-            #dfe8f2;
-
-          border-radius: 4vw;
-
-          background:
-            #f8fafc;
-
-          color: #263b52;
-
-          font-size: 4vw;
-
-          font-weight: 500;
-
+          height: 52px;
+          padding: 0 16px;
+          background-color: #f3f6f9;
+          border: 1px solid #e2e8f0;
+          border-radius: 14px;
+          font-size: 15px;
+          color: #1a202c;
           outline: none;
-
-          box-shadow: none;
-
-          transition:
-            border-color 0.2s ease,
-            background 0.2s ease,
-            box-shadow 0.2s ease;
+          transition: all 0.2s ease;
+          text-align: right;
         }
-
 
         .auth-input::placeholder {
-          color: #9baabd;
-
-          opacity: 1;
+          color: #a0aec0;
+          font-size: 14px;
         }
-
-
-        .auth-input:hover {
-          border-color: #ccdbea;
-        }
-
 
         .auth-input:focus {
-          border-color: #5792d4;
-
-          background: #ffffff;
-
-          box-shadow:
-            0 0 0 1vw
-            rgba(
-              87,
-              146,
-              212,
-              0.08
-            );
+          background-color: #ffffff;
+          border-color: #2b77e5;
+          box-shadow: 0 0 0 3px rgba(43, 119, 229, 0.12);
         }
 
-
-        select.auth-input {
+        .select-input {
           cursor: pointer;
-
-          appearance: auto;
         }
-
-
-        /* =====================================================
-           SUBMIT BUTTON
-        ====================================================== */
 
         .submit-btn {
           width: 100%;
-
-          height: 13.5vw;
-
-          margin-top: 1vw;
-
+          height: 54px;
+          margin-top: 6px;
+          background: #2575fc;
+          background: linear-gradient(135deg, #2b77e5 0%, #1e62cf 100%);
           border: none;
-
-          border-radius: 4vw;
-
-          background:
-            linear-gradient(
-              135deg,
-              #3987dc 0%,
-              #2779cf 100%
-            );
-
+          border-radius: 14px;
           color: #ffffff;
-
-          font-size: 5vw;
-
+          font-size: 17px;
           font-weight: 800;
-
-          line-height: 1;
-
           cursor: pointer;
-
-          display: flex;
-
-          align-items: center;
-
-          justify-content: center;
-
-          gap: 2vw;
-
-          box-shadow:
-            0 2.8vw 5vw
-            rgba(
-              47,
-              126,
-              210,
-              0.20
-            );
-
-          transition:
-            transform 0.18s ease,
-            box-shadow 0.18s ease,
-            opacity 0.18s ease;
+          box-shadow: 0 8px 20px rgba(43, 119, 229, 0.3);
+          transition: all 0.2s ease;
         }
-
 
         .submit-btn:hover:not(:disabled) {
-          transform: translateY(-0.6vw);
-
-          box-shadow:
-            0 3.5vw 6vw
-            rgba(
-              47,
-              126,
-              210,
-              0.25
-            );
+          transform: translateY(-1px);
+          box-shadow: 0 10px 22px rgba(43, 119, 229, 0.38);
         }
-
 
         .submit-btn:active:not(:disabled) {
           transform: translateY(0);
         }
 
-
         .submit-btn:disabled {
-          opacity: 0.65;
-
+          opacity: 0.7;
           cursor: not-allowed;
         }
 
-
-        /* =====================================================
-           SPINNER
-        ====================================================== */
-
-        .btn-spinner {
-          width: 4.5vw;
-          height: 4.5vw;
-
-          border:
-            0.55vw solid
-            rgba(
-              255,
-              255,
-              255,
-              0.35
-            );
-
-          border-top-color:
-            #ffffff;
-
-          border-radius: 50%;
-
-          animation:
-            spin 0.7s linear infinite;
-        }
-
-
-        @keyframes spin {
-          to {
-            transform: rotate(360deg);
-          }
-        }
-
-
-        /* =====================================================
-           TOGGLE
-        ====================================================== */
-
         .toggle-view {
+          margin-top: 22px;
           display: flex;
-
           align-items: center;
-
           justify-content: center;
-
-          flex-wrap: wrap;
-
-          gap: 1.5vw;
-
-          margin-top: 4.8vw;
-
-          font-size: 3.6vw;
-
-          line-height: 1.5;
+          gap: 6px;
+          font-size: 14px;
         }
-
 
         .toggle-muted {
-          color: #64778d;
-
+          color: #61788f;
           font-weight: 500;
         }
 
-
         .toggle-link {
-          padding: 0;
-
+          background: none;
           border: none;
-
-          background: transparent;
-
-          color: #3281d3;
-
-          font-family: 'Cairo', sans-serif;
-
-          font-size: inherit;
-
+          padding: 0;
+          color: #2b77e5;
           font-weight: 800;
-
+          font-family: inherit;
+          font-size: inherit;
           cursor: pointer;
         }
 
-
         .toggle-link:hover {
-          color: #1766b1;
-
           text-decoration: underline;
         }
 
-
-        /* =====================================================
-           PARTNER
-        ====================================================== */
-
+        /* الشريك */
         .partner-section {
-          position: relative;
-
-          z-index: 15;
-
-          width: 100%;
-
+          margin-top: 16px;
           text-align: center;
-
-          margin-top: 8vw;
-
-          line-height: 1.4;
+          z-index: 5;
         }
-
 
         .partner-label {
-          color: #8298b0;
-
-          font-size: 3vw;
-
-          font-weight: 500;
+          font-size: 12px;
+          color: #7b91a7;
         }
-
 
         .partner-name {
-          color: #607c9b;
-
-          font-size: 3.5vw;
-
+          font-size: 14px;
           font-weight: 700;
-
-          margin-top: 0.4vw;
+          color: #123e6b;
         }
 
-
-        /* =====================================================
-           FOOTER
-           
-           The original screenshot has the footer below
-           the card, around the lower center.
-        ====================================================== */
-
-        .login-footer {
-          position: relative;
-
-          z-index: 15;
-
-          width: 100%;
-
-          margin-top: 7vw;
-
-          padding-bottom:
-            max(
-              5vw,
-              env(safe-area-inset-bottom)
-            );
-
+        /* ذيل الصفحة السفلي المطابق للصورة */
+        .page-footer {
+          margin-top: 28px;
           text-align: center;
+          z-index: 5;
         }
 
-
-        /* =====================================================
-           FORCE FOOTER CONTENT TO LOOK LIKE REFERENCE
-           
-           If Footer.jsx contains its own styling, these rules
-           still keep the overall position centered.
-        ====================================================== */
-
-        .login-footer > * {
-          width: 100%;
+        .developer-info {
+          margin: 0;
+          font-size: 13.5px;
+          color: #7890a8;
+          font-weight: 600;
         }
 
-
-        /* =====================================================
-           MOBILE HEIGHT CONTROL
-           
-           The design is intentionally width-based because
-           the supplied reference is a portrait mobile screen.
-        ====================================================== */
-
-        @media (min-width: 601px) {
-
-          .login-page {
-            width: 100%;
-
-            max-width: 432px;
-
-            margin: 0 auto;
-
-            min-height: 100vh;
-
-            box-shadow:
-              0 0 80px
-              rgba(
-                32,
-                73,
-                113,
-                0.08
-              );
-          }
-
-          .auth-card {
-            width: 88.4%;
-
-            margin-top: 79.35%;
-
-            padding:
-              6.6%
-              4.8%
-              5.2%;
-          }
-
-          .visual-layer {
-            width: 100%;
-            height: 80%;
-          }
-
-          .teacher-image-layer {
-            top: 4.3%;
-            right: -2.5%;
-            width: 70.5%;
-            height: 76%;
-          }
-
-          .teacher-information {
-            top: 35.3%;
-            left: 8.5%;
-          }
-
-          .teacher-name {
-            font-size: 6.1%;
-          }
-
-          .teacher-role {
-            font-size: 4%;
-          }
-
-          .teacher-motto {
-            top: 10.8%;
-            right: 7%;
-            font-size: 4.6%;
-          }
+        .copyright-info {
+          margin: 3px 0 0 0;
+          font-size: 13px;
+          color: #7890a8;
+          font-weight: 600;
+          direction: ltr;
         }
-
-
-        /* =====================================================
-           VERY SMALL MOBILE
-        ====================================================== */
-
-        @media (max-width: 360px) {
-
-          .teacher-name {
-            font-size: 5.9vw;
-          }
-
-          .teacher-role {
-            font-size: 3.75vw;
-
-            letter-spacing: 0.65vw;
-          }
-
-          .teacher-motto {
-            font-size: 4.2vw;
-          }
-
-          .card-title {
-            font-size: 6.8vw;
-          }
-
-          .input-label {
-            font-size: 3.4vw;
-          }
-
-          .auth-input {
-            height: 13vw;
-          }
-
-          .submit-btn {
-            height: 13.3vw;
-
-            font-size: 4.7vw;
-          }
-        }
-
-
-        /* =====================================================
-           REDUCE MOTION
-        ====================================================== */
-
-        @media (prefers-reduced-motion: reduce) {
-
-          *,
-          *::before,
-          *::after {
-            scroll-behavior: auto !important;
-            animation-duration: 0.01ms !important;
-            animation-iteration-count: 1 !important;
-            transition-duration: 0.01ms !important;
-          }
-        }
-
       `}</style>
-
     </div>
   );
 }
