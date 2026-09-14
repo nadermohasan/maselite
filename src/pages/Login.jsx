@@ -11,47 +11,47 @@ export default function Login() {
   const [view, setView] = useState('student');
   const [loading, setLoading] = useState(false);
 
-  // ============================================
-  // STUDENT FORM FIELDS
-  // ============================================
+  // ==============================
+  // STUDENT DATA
+  // ==============================
 
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [phone, setPhone] = useState('');
 
-  // ============================================
-  // TEACHER FORM FIELDS
-  // ============================================
+  // ==============================
+  // TEACHER DATA
+  // ==============================
 
   const [teacherUsername, setTeacherUsername] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
 
-  // ============================================
-  // PARTNER DATA
-  // ============================================
+  // ==============================
+  // PARTNER
+  // ==============================
 
   const [partnerLabel, setPartnerLabel] = useState('');
   const [partnerName, setPartnerName] = useState('');
 
-  // ============================================
+  // ==============================
   // SECRET TEACHER ACCESS
-  // ============================================
+  // ==============================
 
   const [secretClicks, setSecretClicks] = useState(0);
 
   const navigate = useNavigate();
 
-  // ============================================
-  // LOAD PARTNER.JSON
-  // ============================================
+  // ==============================
+  // LOAD PARTNER
+  // ==============================
 
   useEffect(() => {
     fetch('/partner.json')
       .then((res) => res.json())
       .then((data) => {
-        setPartnerLabel(data.label);
-        setPartnerName(data.name);
+        setPartnerLabel(data.label || '');
+        setPartnerName(data.name || '');
       })
       .catch(() => {
         setPartnerLabel('بالتعاون مع:');
@@ -59,9 +59,9 @@ export default function Login() {
       });
   }, []);
 
-  // ============================================
+  // ==============================
   // SECRET TEACHER PORTAL
-  // ============================================
+  // ==============================
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -92,9 +92,9 @@ export default function Login() {
     };
   }, []);
 
-  // ============================================
+  // ==============================
   // SECRET LOGO CLICKS
-  // ============================================
+  // ==============================
 
   const handleLogoClick = () => {
     const newCount = secretClicks + 1;
@@ -117,9 +117,9 @@ export default function Login() {
     }, 2000);
   };
 
-  // ============================================
-  // RESET FORMS
-  // ============================================
+  // ==============================
+  // RESET FORM
+  // ==============================
 
   const resetForm = () => {
     setStudentId('');
@@ -131,9 +131,9 @@ export default function Login() {
     setTeacherPassword('');
   };
 
-  // ============================================
-  // NAVIGATION BETWEEN VIEWS
-  // ============================================
+  // ==============================
+  // VIEW NAVIGATION
+  // ==============================
 
   const goToTeacherLogin = () => {
     resetForm();
@@ -149,9 +149,9 @@ export default function Login() {
     setView('signup');
   };
 
-  // ============================================
-  // 1) STUDENT LOGIN
-  // ============================================
+  // ==============================
+  // STUDENT LOGIN
+  // ==============================
 
   const handleStudentLogin = async (e) => {
     e.preventDefault();
@@ -184,7 +184,6 @@ export default function Login() {
 
       if (!profile) {
         setView('signup');
-
         setLoading(false);
 
         toast(
@@ -203,19 +202,16 @@ export default function Login() {
         );
 
         setLoading(false);
-
         return;
       }
 
       const email = `${id}@${EMAIL_DOMAIN}`;
 
-      const {
-        data,
-        error,
-      } = await supabase.auth.signInWithPassword({
-        email,
-        password: id,
-      });
+      const { data, error } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password: id,
+        });
 
       if (error || !data.user) {
         toast.error(
@@ -223,7 +219,6 @@ export default function Login() {
         );
 
         setLoading(false);
-
         return;
       }
 
@@ -241,9 +236,9 @@ export default function Login() {
     }
   };
 
-  // ============================================
-  // 2) STUDENT SIGNUP
-  // ============================================
+  // ==============================
+  // STUDENT SIGNUP
+  // ==============================
 
   const handleStudentSignup = async (e) => {
     e.preventDefault();
@@ -259,7 +254,6 @@ export default function Login() {
       toast.error(
         'رقم الهوية يجب أن يكون 9 أرقام'
       );
-
       return;
     }
 
@@ -303,13 +297,12 @@ export default function Login() {
     try {
       const email = `${id}@${EMAIL_DOMAIN}`;
 
-      const {
-        data: existingProfile,
-      } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('nationalID', id)
-        .maybeSingle();
+      const { data: existingProfile } =
+        await supabase
+          .from('profiles')
+          .select('id')
+          .eq('nationalID', id)
+          .maybeSingle();
 
       if (existingProfile) {
         toast.error(
@@ -317,7 +310,6 @@ export default function Login() {
         );
 
         setView('student');
-
         setLoading(false);
 
         return;
@@ -341,7 +333,6 @@ export default function Login() {
           );
 
           setView('student');
-
           setLoading(false);
 
           return;
@@ -356,11 +347,8 @@ export default function Login() {
         );
       }
 
-      const {
-        error: profileError,
-      } = await supabase
-        .from('profiles')
-        .insert([
+      const { error: profileError } =
+        await supabase.from('profiles').insert([
           {
             id: signUpData.user.id,
             nationalID: id,
@@ -404,15 +392,18 @@ export default function Login() {
     }
   };
 
-  // ============================================
-  // 3) TEACHER LOGIN
-  // ============================================
+  // ==============================
+  // TEACHER LOGIN
+  // ==============================
 
   const handleTeacherLogin = async (e) => {
     e.preventDefault();
 
-    const username = teacherUsername.trim();
-    const password = teacherPassword;
+    const username =
+      teacherUsername.trim();
+
+    const password =
+      teacherPassword;
 
     if (!username || !password) {
       toast.error(
@@ -424,16 +415,18 @@ export default function Login() {
 
     setLoading(true);
 
-    const email = `${username}@${EMAIL_DOMAIN}`;
+    const email =
+      `${username}@${EMAIL_DOMAIN}`;
 
     try {
       const {
         data,
         error,
-      } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
+      } =
+        await supabase.auth.signInWithPassword({
+          email,
+          password,
+        });
 
       if (error || !data.user) {
         toast.error(
@@ -441,17 +434,15 @@ export default function Login() {
         );
 
         setLoading(false);
-
         return;
       }
 
-      const {
-        data: profile,
-      } = await supabase
-        .from('profiles')
-        .select('role')
-        .eq('id', data.user.id)
-        .maybeSingle();
+      const { data: profile } =
+        await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', data.user.id)
+          .maybeSingle();
 
       if (profile?.role !== 'teacher') {
         await supabase.auth.signOut();
@@ -473,46 +464,51 @@ export default function Login() {
     } catch (err) {
       console.error(err);
 
-      toast.error('حدث خطأ غير متوقع');
+      toast.error(
+        'حدث خطأ غير متوقع'
+      );
 
       setLoading(false);
     }
   };
 
-  // ============================================
-  // RENDER
-  // ============================================
+  // =========================================================
+  // UI
+  // =========================================================
 
   return (
-    <div className="auth-page-container">
+    <div className="login-page">
 
-      {/* ==================================================
-          HERO SECTION
-          ================================================== */}
+      {/* =====================================================
+          BACKGROUND
+      ====================================================== */}
 
-      <section className="teacher-hero">
+      <div className="background-layer">
 
-        {/* ----------------------------------------------
-            Background decorative elements
-            ---------------------------------------------- */}
+        <div className="background-circle circle-left" />
 
-        <div className="hero-circle hero-circle-1"></div>
+        <div className="background-circle circle-center" />
 
-        <div className="hero-circle hero-circle-2"></div>
+        <div className="background-circle circle-bottom" />
 
-        <div className="hero-shape hero-shape-1"></div>
+        <div className="background-shape shape-top-left" />
 
-        <div className="hero-shape hero-shape-2"></div>
+        <div className="background-shape shape-bottom-right" />
+
+      </div>
 
 
-        {/* ----------------------------------------------
-            Teacher Image
-            IMPORTANT:
-            This layer is behind the authentication card.
-            ---------------------------------------------- */}
+      {/* =====================================================
+          TOP VISUAL AREA
+          EVERYTHING HERE IS BEHIND THE LOGIN CARD
+      ====================================================== */}
+
+      <div className="visual-layer">
+
+        {/* Teacher image */}
 
         <div
-          className="teacher-image-wrapper"
+          className="teacher-image-layer"
           onClick={handleLogoClick}
           title="English Teacher"
         >
@@ -525,58 +521,56 @@ export default function Login() {
         </div>
 
 
-        {/* ----------------------------------------------
-            Teacher Information
-            ---------------------------------------------- */}
+        {/* Teacher information */}
 
-        <div className="teacher-info">
+        <div className="teacher-information">
 
           <div className="teacher-name">
             أ. محمد أبو سليمان
           </div>
 
+          <div className="teacher-line" />
+
           <div className="teacher-role">
             English Teacher
           </div>
 
-          <div className="teacher-line"></div>
-
-          <div className="teacher-motto">
-            Better
-            <br />
-            English
-            <br />
-            Bigger
-            <br />
-            Dreams
-          </div>
-
         </div>
 
-      </section>
+
+        {/* Motto */}
+
+        <div className="teacher-motto">
+          <div>Better</div>
+          <div>English</div>
+          <div>Bigger</div>
+          <div>Dreams</div>
+
+          <div className="motto-line" />
+        </div>
+
+      </div>
 
 
-      {/* ==================================================
-          AUTH CARD
-          This card intentionally overlaps the hero.
-          It sits above the teacher image.
-          ================================================== */}
+      {/* =====================================================
+          LOGIN CARD
+          THIS CARD IS ABOVE THE TEACHER IMAGE
+      ====================================================== */}
 
-      <div className="auth-card">
+      <main className="auth-card">
 
-
-        {/* ==================================================
+        {/* ===================================================
             STUDENT LOGIN
-            ================================================== */}
+        ==================================================== */}
 
         {view === 'student' && (
           <>
 
             <div className="card-header">
 
-              <div className="card-title">
+              <h1 className="card-title">
                 تسجيل الدخول
-              </div>
+              </h1>
 
             </div>
 
@@ -586,13 +580,9 @@ export default function Login() {
               className="auth-form"
             >
 
-              {/* ------------------------------------------
-                  National ID
-                  ------------------------------------------ */}
-
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -601,10 +591,7 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-                    <path
-                      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    />
-
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle
                       cx="12"
                       cy="7"
@@ -612,7 +599,9 @@ export default function Login() {
                     />
                   </svg>
 
-                  رقم الهوية
+                  <span>
+                    رقم الهوية
+                  </span>
 
                 </label>
 
@@ -645,10 +634,6 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Submit
-                  ------------------------------------------ */}
-
               <button
                 type="submit"
                 className="submit-btn"
@@ -664,22 +649,19 @@ export default function Login() {
             </form>
 
 
-            {/* ------------------------------------------
-                Signup Toggle
-                ------------------------------------------ */}
-
             <div className="toggle-view">
 
               <span className="toggle-muted">
                 ليس لديك حساب؟
               </span>
 
-              <span
+              <button
+                type="button"
                 onClick={goToSignup}
                 className="toggle-link"
               >
                 إنشاء حساب جديد
-              </span>
+              </button>
 
             </div>
 
@@ -687,18 +669,18 @@ export default function Login() {
         )}
 
 
-        {/* ==================================================
+        {/* ===================================================
             SIGN UP
-            ================================================== */}
+        ==================================================== */}
 
         {view === 'signup' && (
           <>
 
             <div className="card-header">
 
-              <div className="card-title">
+              <h1 className="card-title">
                 إنشاء حساب جديد
-              </div>
+              </h1>
 
               <div className="card-subtitle">
                 أدخل بياناتك للبدء في الاختبارات الإلكترونية
@@ -709,16 +691,14 @@ export default function Login() {
 
             <form
               onSubmit={handleStudentSignup}
-              className="auth-form"
+              className="auth-form signup-form"
             >
 
-              {/* ------------------------------------------
-                  National ID
-                  ------------------------------------------ */}
+              {/* NATIONAL ID */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -727,7 +707,6 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
                     <rect
                       x="3"
                       y="4"
@@ -756,10 +735,11 @@ export default function Login() {
                       x2="13"
                       y2="17"
                     />
-
                   </svg>
 
-                  رقم الهوية
+                  <span>
+                    رقم الهوية
+                  </span>
 
                   <span className="required-star">
                     *
@@ -796,13 +776,11 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Full Name
-                  ------------------------------------------ */}
+              {/* FULL NAME */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -811,20 +789,17 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
-                    <path
-                      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    />
-
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                     <circle
                       cx="12"
                       cy="7"
                       r="4"
                     />
-
                   </svg>
 
-                  الاسم الرباعي
+                  <span>
+                    الاسم الرباعي
+                  </span>
 
                   <span className="required-star">
                     *
@@ -853,13 +828,11 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Branch
-                  ------------------------------------------ */}
+              {/* BRANCH */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -868,18 +841,14 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
-                    <path
-                      d="M22 10v6M2 10l10-5 10 5-10 5z"
-                    />
-
-                    <path
-                      d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"
-                    />
-
+                    <path d="M22 10v6" />
+                    <path d="M2 10l10-5 10 5-10 5z" />
+                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5" />
                   </svg>
 
-                  الفرع الدراسي
+                  <span>
+                    الفرع الدراسي
+                  </span>
 
                   <span className="required-star">
                     *
@@ -923,13 +892,11 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Phone
-                  ------------------------------------------ */}
+              {/* PHONE */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -938,7 +905,6 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
                     <rect
                       x="5"
                       y="2"
@@ -953,10 +919,11 @@ export default function Login() {
                       x2="12.01"
                       y2="18"
                     />
-
                   </svg>
 
-                  رقم الجوال
+                  <span>
+                    رقم الجوال
+                  </span>
 
                   <span className="required-star">
                     *
@@ -993,10 +960,6 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Signup Button
-                  ------------------------------------------ */}
-
               <button
                 type="submit"
                 className="submit-btn"
@@ -1005,8 +968,7 @@ export default function Login() {
 
                 {loading ? (
                   <>
-                    <span className="btn-spinner"></span>
-
+                    <span className="btn-spinner" />
                     جاري إنشاء الحساب...
                   </>
                 ) : (
@@ -1018,22 +980,19 @@ export default function Login() {
             </form>
 
 
-            {/* ------------------------------------------
-                Back To Login
-                ------------------------------------------ */}
-
             <div className="toggle-view">
 
               <span className="toggle-muted">
                 لديك حساب بالفعل؟
               </span>
 
-              <span
+              <button
+                type="button"
                 onClick={goToStudentLogin}
                 className="toggle-link"
               >
                 تسجيل الدخول
-              </span>
+              </button>
 
             </div>
 
@@ -1041,18 +1000,18 @@ export default function Login() {
         )}
 
 
-        {/* ==================================================
+        {/* ===================================================
             TEACHER LOGIN
-            ================================================== */}
+        ==================================================== */}
 
         {view === 'teacher' && (
           <>
 
             <div className="card-header">
 
-              <div className="card-title">
+              <h1 className="card-title">
                 بوابة المعلم
-              </div>
+              </h1>
 
               <div className="card-subtitle">
                 تسجيل الدخول إلى لوحة التحكم
@@ -1066,13 +1025,11 @@ export default function Login() {
               className="auth-form"
             >
 
-              {/* ------------------------------------------
-                  Username
-                  ------------------------------------------ */}
+              {/* USERNAME */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -1081,20 +1038,18 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
-                    <path
-                      d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"
-                    />
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
 
                     <circle
                       cx="12"
                       cy="7"
                       r="4"
                     />
-
                   </svg>
 
-                  اسم المستخدم
+                  <span>
+                    اسم المستخدم
+                  </span>
 
                 </label>
 
@@ -1124,13 +1079,11 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Password
-                  ------------------------------------------ */}
+              {/* PASSWORD */}
 
               <div className="input-group">
 
-                <label>
+                <label className="input-label">
 
                   <svg
                     className="label-icon"
@@ -1139,7 +1092,6 @@ export default function Login() {
                     stroke="currentColor"
                     strokeWidth="2"
                   >
-
                     <rect
                       x="3"
                       y="11"
@@ -1148,13 +1100,12 @@ export default function Login() {
                       rx="2"
                     />
 
-                    <path
-                      d="M7 11V7a5 5 0 0 1 10 0v4"
-                    />
-
+                    <path d="M7 11V7a5 5 0 0 1 10 0v4" />
                   </svg>
 
-                  كلمة المرور
+                  <span>
+                    كلمة المرور
+                  </span>
 
                 </label>
 
@@ -1180,10 +1131,6 @@ export default function Login() {
               </div>
 
 
-              {/* ------------------------------------------
-                  Teacher Login Button
-                  ------------------------------------------ */}
-
               <button
                 type="submit"
                 className="submit-btn"
@@ -1199,33 +1146,30 @@ export default function Login() {
             </form>
 
 
-            {/* ------------------------------------------
-                Back To Student Login
-                ------------------------------------------ */}
-
             <div className="toggle-view">
 
-              <span
+              <button
+                type="button"
                 onClick={goToStudentLogin}
                 className="toggle-link"
               >
                 العودة لتسجيل الدخول
-              </span>
+              </button>
 
             </div>
 
           </>
         )}
 
-      </div>
+      </main>
 
 
-      {/* ==================================================
-          PARTNER SECTION
-          ================================================== */}
+      {/* =====================================================
+          PARTNER
+      ====================================================== */}
 
       {(partnerLabel || partnerName) && (
-        <div className="partner-text">
+        <div className="partner-section">
 
           {partnerLabel && (
             <div className="partner-label">
@@ -1243,58 +1187,60 @@ export default function Login() {
       )}
 
 
-      {/* ==================================================
+      {/* =====================================================
           FOOTER
-          ================================================== */}
+      ====================================================== */}
 
-      <Footer />
+      <div className="login-footer">
+        <Footer />
+      </div>
 
 
-      {/* ==================================================
-          STYLES
-          ================================================== */}
+      {/* =====================================================
+          CSS
+      ====================================================== */}
 
       <style>{`
 
-        /* ==================================================
-           FONT
-           ================================================== */
+        /* =====================================================
+           FONT + RESET
+        ====================================================== */
 
         @import url(
           'https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap'
         );
 
-
-        /* ==================================================
-           GLOBAL
-           ================================================== */
-
         :root {
           color-scheme: light only;
         }
 
-
-        * {
+        *,
+        *::before,
+        *::after {
           box-sizing: border-box;
         }
-
 
         html,
         body,
         #root {
           margin: 0;
+          padding: 0;
+          width: 100%;
           min-height: 100%;
         }
 
-
-        body {
-          font-family: 'Cairo', sans-serif;
-
-          background: #e5f1fd;
-
-          color: #26384d;
+        html {
+          background: #e9f4ff;
         }
 
+        body {
+          margin: 0;
+          padding: 0;
+          font-family: 'Cairo', sans-serif;
+          background: #e9f4ff;
+          color: #173a61;
+          overflow-x: hidden;
+        }
 
         input,
         select,
@@ -1304,22 +1250,21 @@ export default function Login() {
         }
 
 
-        /* ==================================================
+        /* =====================================================
            MAIN PAGE
-           ================================================== */
+           Reference design: 864 x 1536
+        ====================================================== */
 
-        .auth-page-container {
+        .login-page {
+          --design-width: 864;
 
           position: relative;
 
           width: 100%;
-
           min-height: 100vh;
 
           display: flex;
-
           flex-direction: column;
-
           align-items: center;
 
           direction: rtl;
@@ -1327,73 +1272,29 @@ export default function Login() {
           overflow-x: hidden;
 
           background:
-
-            radial-gradient(
-              circle at 10% 18%,
-              rgba(255, 255, 255, 0.72) 0%,
-              rgba(255, 255, 255, 0) 27%
-            ),
-
-            radial-gradient(
-              circle at 95% 68%,
-              rgba(255, 255, 255, 0.42) 0%,
-              rgba(255, 255, 255, 0) 30%
-            ),
-
             linear-gradient(
               145deg,
-              #edf6ff 0%,
-              #e5f1fc 46%,
-              #d9eafa 100%
+              #f0f8ff 0%,
+              #e8f4ff 42%,
+              #deefff 100%
             );
-
-          padding:
-
-            max(
-              0px,
-              env(safe-area-inset-top)
-            )
-
-            0
-
-            max(
-              24px,
-              env(safe-area-inset-bottom)
-            );
-        }
-
-
-        /* ==================================================
-           HERO
-           ================================================== */
-
-        .teacher-hero {
-
-          position: relative;
-
-          width: 100%;
-
-          max-width: 864px;
-
-          height: 690px;
-
-          flex-shrink: 0;
-
-          overflow: visible;
 
           isolation: isolate;
         }
 
 
-        /* ==================================================
-           HERO CIRCLES
-           ================================================== */
+        /* =====================================================
+           BACKGROUND
+        ====================================================== */
 
-        .hero-circle {
-
+        .background-layer {
           position: absolute;
+          inset: 0;
 
-          border-radius: 50%;
+          width: 100%;
+          min-height: 100%;
+
+          overflow: hidden;
 
           pointer-events: none;
 
@@ -1401,585 +1302,615 @@ export default function Login() {
         }
 
 
-        .hero-circle-1 {
-
-          width: 430px;
-
-          height: 430px;
-
-          left: -185px;
-
-          top: 180px;
-
-          background:
-            rgba(255, 255, 255, 0.24);
-        }
-
-
-        .hero-circle-2 {
-
-          width: 360px;
-
-          height: 360px;
-
-          right: -185px;
-
-          bottom: -130px;
-
-          background:
-            rgba(255, 255, 255, 0.22);
-        }
-
-
-        /* ==================================================
-           HERO GEOMETRIC SHAPES
-           ================================================== */
-
-        .hero-shape {
-
+        .background-circle {
           position: absolute;
-
-          pointer-events: none;
-
-          z-index: 0;
-
-          opacity: 0.25;
-        }
-
-
-        .hero-shape-1 {
-
-          width: 260px;
-
-          height: 260px;
-
-          left: -115px;
-
-          top: -40px;
-
-          border-radius: 40px;
-
-          transform: rotate(45deg);
-
-          background:
-            rgba(255, 255, 255, 0.20);
-        }
-
-
-        .hero-shape-2 {
-
-          width: 260px;
-
-          height: 260px;
-
-          right: -170px;
-
-          top: 370px;
 
           border-radius: 50%;
 
-          background:
-            rgba(105, 158, 218, 0.08);
+          pointer-events: none;
         }
 
 
-        /* ==================================================
-           TEACHER IMAGE WRAPPER
-           
+        .circle-left {
+          width: 115vw;
+          height: 115vw;
+
+          left: -78vw;
+          top: 14vw;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,0.72) 0%,
+              rgba(255,255,255,0.36) 42%,
+              rgba(255,255,255,0) 72%
+            );
+        }
+
+
+        .circle-center {
+          width: 72vw;
+          height: 72vw;
+
+          left: 34vw;
+          top: 35vw;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(137,186,235,0.12) 0%,
+              rgba(137,186,235,0.04) 50%,
+              rgba(137,186,235,0) 75%
+            );
+        }
+
+
+        .circle-bottom {
+          width: 100vw;
+          height: 100vw;
+
+          right: -74vw;
+          bottom: -33vw;
+
+          background:
+            radial-gradient(
+              circle,
+              rgba(255,255,255,0.58) 0%,
+              rgba(255,255,255,0.2) 45%,
+              rgba(255,255,255,0) 70%
+            );
+        }
+
+
+        .background-shape {
+          position: absolute;
+
+          pointer-events: none;
+        }
+
+
+        .shape-top-left {
+          width: 72vw;
+          height: 72vw;
+
+          left: -55vw;
+          top: -40vw;
+
+          border-radius: 50%;
+
+          border: 1px solid rgba(255,255,255,0.32);
+        }
+
+
+        .shape-bottom-right {
+          width: 110vw;
+          height: 45vw;
+
+          right: -65vw;
+          bottom: 8vw;
+
+          transform: rotate(-38deg);
+
+          background:
+            linear-gradient(
+              135deg,
+              rgba(255,255,255,0.2),
+              rgba(255,255,255,0)
+            );
+        }
+
+
+        /* =====================================================
+           VISUAL LAYER
            IMPORTANT:
-           The image is a separate layer.
-           
-           z-index 2 = behind the card.
-           ================================================== */
+           This entire layer sits BEHIND the white card.
+        ====================================================== */
 
-        .teacher-image-wrapper {
-
+        .visual-layer {
           position: absolute;
 
-          right: -1%;
+          top: 0;
+          left: 0;
 
-          bottom: -5px;
+          width: 100%;
 
-          width: 67%;
+          height: 80vw;
 
-          height: 635px;
+          z-index: 2;
+
+          pointer-events: none;
+        }
+
+
+        /* =====================================================
+           TEACHER IMAGE
+        ====================================================== */
+
+        .teacher-image-layer {
+          position: absolute;
+
+          top: 4.3vw;
+          right: -2.5vw;
+
+          width: 70.5vw;
+          height: 76vw;
 
           display: flex;
 
           align-items: flex-end;
-
           justify-content: center;
 
-          z-index: 2;
+          z-index: 3;
+
+          pointer-events: auto;
 
           cursor: default;
 
           user-select: none;
-
-          pointer-events: auto;
         }
 
 
-        /* ==================================================
-           TEACHER IMAGE
-           ================================================== */
-
         .teacher-image {
+          position: absolute;
 
-          position: relative;
+          right: 0;
+          bottom: 0;
+
+          width: 100%;
+          height: 100%;
+
+          object-fit: contain;
+          object-position: center bottom;
 
           display: block;
 
-          width: 100%;
+          user-select: none;
 
-          height: 100%;
-
-          max-width: none;
-
-          object-fit: contain;
-
-          object-position: center bottom;
-
-          filter:
-
-            drop-shadow(
-              0 18px 25px
-              rgba(45, 84, 128, 0.10)
-            );
+          pointer-events: auto;
 
           -webkit-user-drag: none;
 
-          user-select: none;
+          filter:
+            drop-shadow(
+              0 18px 28px
+              rgba(47,82,120,0.10)
+            );
         }
 
 
-        /* ==================================================
-           TEACHER INFORMATION
-           ================================================== */
+        /* =====================================================
+           TEACHER NAME
+        ====================================================== */
 
-        .teacher-info {
-
+        .teacher-information {
           position: absolute;
 
-          left: 8%;
+          top: 35.3vw;
+          left: 8.5vw;
 
-          top: 285px;
+          width: 43vw;
 
-          width: 43%;
-
-          display: flex;
-
-          flex-direction: column;
-
-          align-items: flex-start;
-
-          z-index: 6;
-
-          pointer-events: none;
+          z-index: 5;
 
           direction: rtl;
+
+          text-align: right;
+
+          pointer-events: none;
         }
 
 
-        /* ==================================================
-           TEACHER NAME
-           ================================================== */
-
         .teacher-name {
+          color: #173b64;
 
-          color: #173f6b;
+          font-size: 6.1vw;
 
-          font-size:
-
-            clamp(
-              24px,
-              4.25vw,
-              39px
-            );
-
-          line-height: 1.3;
+          line-height: 1.25;
 
           font-weight: 800;
 
-          letter-spacing: -0.8px;
+          letter-spacing: -0.45px;
 
           white-space: nowrap;
         }
 
 
-        /* ==================================================
-           TEACHER ROLE
-           ================================================== */
+        .teacher-line {
+          width: 17.2vw;
+          height: 0.8vw;
+
+          margin-top: 1.4vw;
+
+          margin-right: 0.5vw;
+
+          border-radius: 999px;
+
+          background:
+            linear-gradient(
+              90deg,
+              #3d83d3 0%,
+              #5e9ce0 100%
+            );
+
+          transform:
+            rotate(-3deg);
+        }
+
 
         .teacher-role {
+          margin-top: 2.6vw;
 
-          margin-top: 8px;
+          color: #5f91c6;
 
-          color: #6b94bd;
+          font-family:
+            Arial,
+            sans-serif;
 
-          font-family: Arial, sans-serif;
-
-          font-size: 17px;
+          font-size: 4vw;
 
           font-weight: 500;
 
-          letter-spacing: 4px;
+          line-height: 1;
+
+          letter-spacing: 0.8vw;
 
           direction: ltr;
 
           text-align: left;
+
+          white-space: nowrap;
         }
 
 
-        /* ==================================================
-           BLUE UNDERLINE
-           ================================================== */
-
-        .teacher-line {
-
-          width: 63px;
-
-          height: 4px;
-
-          margin-top: 13px;
-
-          border-radius: 99px;
-
-          background: #347bc8;
-
-          transform: rotate(-5deg);
-
-          transform-origin: left center;
-        }
-
-
-        /* ==================================================
-           TEACHER MOTTO
-           ================================================== */
+        /* =====================================================
+           MOTTO
+        ====================================================== */
 
         .teacher-motto {
-
           position: absolute;
 
-          left: 100%;
+          top: 10.8vw;
+          right: 7vw;
 
-          top: -155px;
+          z-index: 2;
 
-          width: 155px;
+          color: rgba(
+            67,
+            125,
+            186,
+            0.27
+          );
 
-          color:
-            rgba(75, 139, 205, 0.30);
+          font-family:
+            Arial,
+            sans-serif;
 
-          font-family: Arial, sans-serif;
+          font-size: 4.6vw;
 
-          font-size: 22px;
+          font-weight: 600;
 
           line-height: 1.12;
 
-          font-weight: 700;
-
-          letter-spacing: 1px;
+          letter-spacing: 0.08vw;
 
           direction: ltr;
 
           text-align: left;
 
-          transform: rotate(-5deg);
+          transform: rotate(-7deg);
+
+          pointer-events: none;
         }
 
 
-        /* ==================================================
-           AUTH CARD
-           
-           CRITICAL:
-           The card has z-index 20.
-           
-           Teacher image = z-index 2
-           Teacher info = z-index 6
-           Card = z-index 20
-           
-           Therefore the card visually covers
-           the lower part of the teacher.
-           ================================================== */
+        .motto-line {
+          width: 13vw;
+          height: 0.55vw;
 
-        .auth-card {
+          margin-top: 1.2vw;
+          margin-left: 0.5vw;
 
-          position: relative;
-
-          width: calc(100% - 100px);
-
-          max-width: 764px;
-
-          margin-top: -4px;
-
-          padding:
-            50px
-            38px
-            35px;
+          border-radius: 99px;
 
           background:
-            rgba(255, 255, 255, 0.97);
+            rgba(
+              69,
+              130,
+              194,
+              0.23
+            );
+
+          transform: rotate(-2deg);
+        }
+
+
+        /* =====================================================
+           AUTH CARD
+           
+           Reference:
+           card begins around 44.7% of 1536px
+           = 79.3vw when using 864px reference width.
+           
+           This is why it OVERLAPS the teacher.
+        ====================================================== */
+
+        .auth-card {
+          position: relative;
+
+          width: 88.4vw;
+
+          max-width: none;
+
+          margin-top: 79.35vw;
+
+          padding:
+            6.6vw
+            4.25vw
+            5.2vw;
+
+          background:
+            rgba(
+              255,
+              255,
+              255,
+              0.97
+            );
+
+          border-radius: 5.2vw;
 
           border:
             1px solid
-            rgba(255, 255, 255, 0.90);
-
-          border-radius: 34px;
+            rgba(
+              255,
+              255,
+              255,
+              0.9
+            );
 
           box-shadow:
+            0 2.5vw 6.5vw
+            rgba(
+              49,
+              91,
+              133,
+              0.10
+            ),
 
-            0 25px 65px
-            rgba(45, 84, 128, 0.11),
+            0 0.8vw 2.2vw
+            rgba(
+              49,
+              91,
+              133,
+              0.045
+            );
 
-            0 5px 18px
-            rgba(45, 84, 128, 0.05);
+          backdrop-filter:
+            blur(14px);
 
-          backdrop-filter: blur(16px);
-
-          -webkit-backdrop-filter: blur(16px);
+          -webkit-backdrop-filter:
+            blur(14px);
 
           z-index: 20;
-        }
-
-
-        /* ==================================================
-           CARD HEADER
-           ================================================== */
-
-        .card-header {
-
-          text-align: center;
-
-          margin-bottom: 29px;
-        }
-
-
-        .card-title {
-
-          color: #173e69;
-
-          font-size: 32px;
-
-          line-height: 1.3;
-
-          font-weight: 800;
-
-          letter-spacing: -0.7px;
-        }
-
-
-        .card-subtitle {
-
-          margin-top: 7px;
-
-          color: #8b9caf;
-
-          font-size: 13px;
-
-          font-weight: 500;
-        }
-
-
-        /* ==================================================
-           FORM
-           ================================================== */
-
-        .auth-form {
-
-          display: flex;
-
-          flex-direction: column;
-
-          gap: 20px;
-        }
-
-
-        .input-group {
-
-          width: 100%;
-        }
-
-
-        /* ==================================================
-           LABEL
-           ================================================== */
-
-        .input-group label {
-
-          display: flex;
-
-          align-items: center;
-
-          gap: 8px;
-
-          margin-bottom: 9px;
-
-          color: #596b7e;
-
-          font-size: 14px;
-
-          font-weight: 700;
-        }
-
-
-        /* ==================================================
-           LABEL ICON
-           ================================================== */
-
-        .label-icon {
-
-          width: 19px;
-
-          height: 19px;
-
-          color: #4a8bd3;
 
           flex-shrink: 0;
         }
 
 
-        /* ==================================================
-           REQUIRED STAR
-           ================================================== */
+        /* =====================================================
+           CARD HEADER
+        ====================================================== */
+
+        .card-header {
+          width: 100%;
+
+          text-align: center;
+
+          margin: 0 0 5.5vw;
+        }
+
+
+        .card-title {
+          margin: 0;
+
+          color: #173c67;
+
+          font-size: 7.1vw;
+
+          line-height: 1.25;
+
+          font-weight: 800;
+
+          letter-spacing: -0.25vw;
+        }
+
+
+        .card-subtitle {
+          margin-top: 1.7vw;
+
+          color: #899caf;
+
+          font-size: 3.1vw;
+
+          line-height: 1.6;
+
+          font-weight: 500;
+        }
+
+
+        /* =====================================================
+           FORM
+        ====================================================== */
+
+        .auth-form {
+          display: flex;
+
+          flex-direction: column;
+
+          width: 100%;
+
+          gap: 4.2vw;
+        }
+
+
+        .signup-form {
+          gap: 3.4vw;
+        }
+
+
+        .input-group {
+          width: 100%;
+        }
+
+
+        /* =====================================================
+           LABEL
+        ====================================================== */
+
+        .input-label {
+          display: flex;
+
+          align-items: center;
+
+          justify-content: flex-start;
+
+          gap: 1.55vw;
+
+          margin-bottom: 2.1vw;
+
+          color: #536a83;
+
+          font-size: 3.55vw;
+
+          font-weight: 700;
+
+          line-height: 1.4;
+        }
+
+
+        .label-icon {
+          width: 5.5vw;
+          height: 5.5vw;
+
+          color: #3e8bd5;
+
+          flex-shrink: 0;
+        }
+
 
         .required-star {
-
           color: #ef5350;
 
           font-weight: 800;
         }
 
 
-        /* ==================================================
-           INPUT WRAPPER
-           ================================================== */
+        /* =====================================================
+           INPUT
+        ====================================================== */
 
         .input-wrapper {
-
           width: 100%;
         }
 
 
-        /* ==================================================
-           INPUT
-           ================================================== */
-
         .auth-input {
-
           width: 100%;
 
-          height: 62px;
+          height: 13.15vw;
 
           padding:
-            0 20px;
+            0 4.1vw;
 
           border:
             1.5px solid
-            #dfe8f1;
+            #dfe8f2;
 
-          border-radius: 18px;
+          border-radius: 4vw;
 
           background:
             #f8fafc;
 
-          color: #26384d;
+          color: #263b52;
 
-          font-size: 15px;
+          font-size: 4vw;
 
           font-weight: 500;
 
           outline: none;
 
+          box-shadow: none;
+
           transition:
-
             border-color 0.2s ease,
-
             background 0.2s ease,
-
             box-shadow 0.2s ease;
         }
 
 
-        /* ==================================================
-           INPUT PLACEHOLDER
-           ================================================== */
-
         .auth-input::placeholder {
-
-          color: #a9b5c2;
+          color: #9baabd;
 
           opacity: 1;
         }
 
 
-        /* ==================================================
-           INPUT HOVER
-           ================================================== */
-
         .auth-input:hover {
-
-          border-color: #cbdbea;
+          border-color: #ccdbea;
         }
 
-
-        /* ==================================================
-           INPUT FOCUS
-           ================================================== */
 
         .auth-input:focus {
+          border-color: #5792d4;
 
-          border-color: #5793d4;
-
-          background: #fff;
+          background: #ffffff;
 
           box-shadow:
-
-            0 0 0 4px
-            rgba(87, 146, 212, 0.09);
+            0 0 0 1vw
+            rgba(
+              87,
+              146,
+              212,
+              0.08
+            );
         }
 
 
-        /* ==================================================
-           SELECT
-           ================================================== */
-
         select.auth-input {
-
           cursor: pointer;
 
           appearance: auto;
         }
 
 
-        /* ==================================================
+        /* =====================================================
            SUBMIT BUTTON
-           ================================================== */
+        ====================================================== */
 
         .submit-btn {
-
           width: 100%;
 
-          height: 62px;
+          height: 13.5vw;
 
-          margin-top: 4px;
+          margin-top: 1vw;
 
           border: none;
 
-          border-radius: 18px;
+          border-radius: 4vw;
 
           background:
-
             linear-gradient(
               135deg,
-              #5796dc 0%,
-              #367cc8 100%
+              #3987dc 0%,
+              #2779cf 100%
             );
 
-          color: #fff;
+          color: #ffffff;
 
-          font-size: 19px;
+          font-size: 5vw;
 
           font-weight: 800;
+
+          line-height: 1;
 
           cursor: pointer;
 
@@ -1989,649 +1920,343 @@ export default function Login() {
 
           justify-content: center;
 
-          gap: 9px;
+          gap: 2vw;
 
           box-shadow:
-
-            0 11px 25px
-            rgba(62, 126, 201, 0.21);
+            0 2.8vw 5vw
+            rgba(
+              47,
+              126,
+              210,
+              0.20
+            );
 
           transition:
-
-            transform 0.2s ease,
-
-            box-shadow 0.2s ease,
-
-            opacity 0.2s ease;
+            transform 0.18s ease,
+            box-shadow 0.18s ease,
+            opacity 0.18s ease;
         }
 
-
-        /* ==================================================
-           BUTTON HOVER
-           ================================================== */
 
         .submit-btn:hover:not(:disabled) {
-
-          transform: translateY(-2px);
+          transform: translateY(-0.6vw);
 
           box-shadow:
-
-            0 15px 30px
-            rgba(62, 126, 201, 0.27);
+            0 3.5vw 6vw
+            rgba(
+              47,
+              126,
+              210,
+              0.25
+            );
         }
 
 
-        /* ==================================================
-           BUTTON ACTIVE
-           ================================================== */
-
         .submit-btn:active:not(:disabled) {
-
           transform: translateY(0);
         }
 
 
-        /* ==================================================
-           BUTTON DISABLED
-           ================================================== */
-
         .submit-btn:disabled {
-
           opacity: 0.65;
 
           cursor: not-allowed;
         }
 
 
-        /* ==================================================
-           LOADING SPINNER
-           ================================================== */
+        /* =====================================================
+           SPINNER
+        ====================================================== */
 
         .btn-spinner {
-
-          width: 18px;
-
-          height: 18px;
+          width: 4.5vw;
+          height: 4.5vw;
 
           border:
+            0.55vw solid
+            rgba(
+              255,
+              255,
+              255,
+              0.35
+            );
 
-            2px solid
-            rgba(255, 255, 255, 0.35);
-
-          border-top-color: #fff;
+          border-top-color:
+            #ffffff;
 
           border-radius: 50%;
 
           animation:
-
-            spin
-            0.7s
-            linear
-            infinite;
+            spin 0.7s linear infinite;
         }
 
 
         @keyframes spin {
-
           to {
             transform: rotate(360deg);
           }
         }
 
 
-        /* ==================================================
-           TOGGLE VIEW
-           ================================================== */
+        /* =====================================================
+           TOGGLE
+        ====================================================== */
 
         .toggle-view {
-
           display: flex;
-
-          justify-content: center;
 
           align-items: center;
 
+          justify-content: center;
+
           flex-wrap: wrap;
 
-          gap: 5px;
+          gap: 1.5vw;
 
-          margin-top: 22px;
+          margin-top: 4.8vw;
 
-          font-size: 14px;
+          font-size: 3.6vw;
+
+          line-height: 1.5;
         }
 
-
-        /* ==================================================
-           MUTED TEXT
-           ================================================== */
 
         .toggle-muted {
+          color: #64778d;
 
-          color: #68798c;
+          font-weight: 500;
         }
 
 
-        /* ==================================================
-           TOGGLE LINK
-           ================================================== */
-
         .toggle-link {
+          padding: 0;
 
-          color: #4489cf;
+          border: none;
+
+          background: transparent;
+
+          color: #3281d3;
+
+          font-family: 'Cairo', sans-serif;
+
+          font-size: inherit;
 
           font-weight: 800;
 
           cursor: pointer;
-
-          transition:
-            color 0.2s ease;
         }
 
 
         .toggle-link:hover {
-
-          color: #286bb0;
+          color: #1766b1;
 
           text-decoration: underline;
         }
 
 
-        /* ==================================================
+        /* =====================================================
            PARTNER
-           ================================================== */
+        ====================================================== */
 
-        .partner-text {
-
+        .partner-section {
           position: relative;
 
-          z-index: 5;
+          z-index: 15;
+
+          width: 100%;
 
           text-align: center;
 
-          margin:
-            30px auto 0;
+          margin-top: 8vw;
 
-          line-height: 1.35;
+          line-height: 1.4;
         }
 
 
         .partner-label {
+          color: #8298b0;
 
-          color: #7895b3;
-
-          font-size: 12px;
+          font-size: 3vw;
 
           font-weight: 500;
         }
 
 
         .partner-name {
+          color: #607c9b;
 
-          color: #55799f;
-
-          font-size: 15px;
+          font-size: 3.5vw;
 
           font-weight: 700;
+
+          margin-top: 0.4vw;
         }
 
 
-        /* ==================================================
-           MOBILE
+        /* =====================================================
+           FOOTER
            
-           Based on the attached reference:
-           864 x 1536
+           The original screenshot has the footer below
+           the card, around the lower center.
+        ====================================================== */
+
+        .login-footer {
+          position: relative;
+
+          z-index: 15;
+
+          width: 100%;
+
+          margin-top: 7vw;
+
+          padding-bottom:
+            max(
+              5vw,
+              env(safe-area-inset-bottom)
+            );
+
+          text-align: center;
+        }
+
+
+        /* =====================================================
+           FORCE FOOTER CONTENT TO LOOK LIKE REFERENCE
            
-           The hero remains tall.
-           The teacher image is large.
-           The card overlaps the image.
-           ================================================== */
+           If Footer.jsx contains its own styling, these rules
+           still keep the overall position centered.
+        ====================================================== */
 
-        @media (max-width: 600px) {
+        .login-footer > * {
+          width: 100%;
+        }
 
 
-          /* ----------------------------------------------
-             PAGE
-             ---------------------------------------------- */
+        /* =====================================================
+           MOBILE HEIGHT CONTROL
+           
+           The design is intentionally width-based because
+           the supplied reference is a portrait mobile screen.
+        ====================================================== */
 
-          .auth-page-container {
+        @media (min-width: 601px) {
 
-            padding:
+          .login-page {
+            width: 100%;
 
-              0
+            max-width: 432px;
 
-              0
+            margin: 0 auto;
 
-              max(
-                22px,
-                env(safe-area-inset-bottom)
+            min-height: 100vh;
+
+            box-shadow:
+              0 0 80px
+              rgba(
+                32,
+                73,
+                113,
+                0.08
               );
           }
 
+          .auth-card {
+            width: 88.4%;
 
-          /* ----------------------------------------------
-             HERO
-             ---------------------------------------------- */
+            margin-top: 79.35%;
 
-          .teacher-hero {
-
-            height: 688px;
-
-            max-width: 100%;
-
-            margin: 0;
+            padding:
+              6.6%
+              4.8%
+              5.2%;
           }
 
-
-          /* ----------------------------------------------
-             TEACHER IMAGE
-             ---------------------------------------------- */
-
-          .teacher-image-wrapper {
-
-            right: -4%;
-
-            bottom: -8px;
-
-            width: 74%;
-
-            height: 625px;
-
-            z-index: 2;
-          }
-
-
-          .teacher-image {
-
+          .visual-layer {
             width: 100%;
-
-            height: 100%;
-
-            object-fit: contain;
-
-            object-position:
-              center bottom;
+            height: 80%;
           }
 
-
-          /* ----------------------------------------------
-             TEACHER INFORMATION
-             ---------------------------------------------- */
-
-          .teacher-info {
-
-            left: 8%;
-
-            top: 310px;
-
-            width: 50%;
-
-            z-index: 6;
+          .teacher-image-layer {
+            top: 4.3%;
+            right: -2.5%;
+            width: 70.5%;
+            height: 76%;
           }
 
+          .teacher-information {
+            top: 35.3%;
+            left: 8.5%;
+          }
 
           .teacher-name {
-
-            font-size: 25px;
-
-            line-height: 1.35;
-
-            letter-spacing: -0.7px;
+            font-size: 6.1%;
           }
-
 
           .teacher-role {
-
-            margin-top: 7px;
-
-            font-size: 13px;
-
-            letter-spacing: 3px;
+            font-size: 4%;
           }
-
-
-          .teacher-line {
-
-            width: 58px;
-
-            height: 3px;
-
-            margin-top: 10px;
-          }
-
-
-          /* ----------------------------------------------
-             MOTTO
-             ---------------------------------------------- */
 
           .teacher-motto {
-
-            left: auto;
-
-            right: -145px;
-
-            top: -145px;
-
-            width: 130px;
-
-            font-size: 18px;
-
-            line-height: 1.08;
+            top: 10.8%;
+            right: 7%;
+            font-size: 4.6%;
           }
-
-
-          /* ----------------------------------------------
-             DECORATIVE CIRCLES
-             ---------------------------------------------- */
-
-          .hero-circle-1 {
-
-            width: 390px;
-
-            height: 390px;
-
-            left: -205px;
-
-            top: 250px;
-          }
-
-
-          .hero-circle-2 {
-
-            width: 320px;
-
-            height: 320px;
-
-            right: -170px;
-
-            bottom: -110px;
-          }
-
-
-          /* ----------------------------------------------
-             DECORATIVE SHAPES
-             ---------------------------------------------- */
-
-          .hero-shape-1 {
-
-            width: 220px;
-
-            height: 220px;
-
-            left: -115px;
-
-            top: 20px;
-          }
-
-
-          /* ----------------------------------------------
-             AUTH CARD
-             ---------------------------------------------- */
-
-          .auth-card {
-
-            width:
-              calc(100% - 52px);
-
-            max-width: none;
-
-            margin-top: 0;
-
-            padding:
-
-              43px
-
-              37px
-
-              31px;
-
-            border-radius: 32px;
-
-            z-index: 20;
-          }
-
-
-          /* ----------------------------------------------
-             CARD HEADER
-             ---------------------------------------------- */
-
-          .card-header {
-
-            margin-bottom: 27px;
-          }
-
-
-          .card-title {
-
-            font-size: 29px;
-          }
-
-
-          .card-subtitle {
-
-            font-size: 11px;
-          }
-
-
-          /* ----------------------------------------------
-             FORM
-             ---------------------------------------------- */
-
-          .auth-form {
-
-            gap: 18px;
-          }
-
-
-          /* ----------------------------------------------
-             LABEL
-             ---------------------------------------------- */
-
-          .input-group label {
-
-            font-size: 13px;
-
-            margin-bottom: 8px;
-          }
-
-
-          /* ----------------------------------------------
-             INPUT
-             ---------------------------------------------- */
-
-          .auth-input {
-
-            height: 57px;
-
-            border-radius: 17px;
-
-            font-size: 14px;
-
-            padding:
-              0 17px;
-          }
-
-
-          /* ----------------------------------------------
-             BUTTON
-             ---------------------------------------------- */
-
-          .submit-btn {
-
-            height: 59px;
-
-            border-radius: 17px;
-
-            font-size: 17px;
-          }
-
-
-          /* ----------------------------------------------
-             TOGGLE
-             ---------------------------------------------- */
-
-          .toggle-view {
-
-            margin-top: 20px;
-
-            font-size: 13px;
-          }
-
-
-          /* ----------------------------------------------
-             PARTNER
-             ---------------------------------------------- */
-
-          .partner-text {
-
-            margin-top: 28px;
-
-            margin-bottom: 0;
-          }
-
-
-          .partner-label {
-
-            font-size: 11px;
-          }
-
-
-          .partner-name {
-
-            font-size: 14px;
-          }
-
         }
 
 
-        /* ==================================================
-           SMALL PHONES
-           ================================================== */
+        /* =====================================================
+           VERY SMALL MOBILE
+        ====================================================== */
 
-        @media (max-width: 380px) {
-
-
-          /* ----------------------------------------------
-             HERO
-             ---------------------------------------------- */
-
-          .teacher-hero {
-
-            height: 610px;
-          }
-
-
-          /* ----------------------------------------------
-             IMAGE
-             ---------------------------------------------- */
-
-          .teacher-image-wrapper {
-
-            width: 76%;
-
-            height: 555px;
-
-            right: -5%;
-          }
-
-
-          /* ----------------------------------------------
-             INFO
-             ---------------------------------------------- */
-
-          .teacher-info {
-
-            left: 5%;
-
-            top: 285px;
-
-            width: 51%;
-          }
-
+        @media (max-width: 360px) {
 
           .teacher-name {
-
-            font-size: 21px;
+            font-size: 5.9vw;
           }
-
 
           .teacher-role {
+            font-size: 3.75vw;
 
-            font-size: 11px;
-
-            letter-spacing: 2px;
+            letter-spacing: 0.65vw;
           }
-
-
-          /* ----------------------------------------------
-             MOTTO
-             ---------------------------------------------- */
 
           .teacher-motto {
-
-            right: -120px;
-
-            top: -120px;
-
-            font-size: 15px;
+            font-size: 4.2vw;
           }
-
-
-          /* ----------------------------------------------
-             CARD
-             ---------------------------------------------- */
-
-          .auth-card {
-
-            width:
-              calc(100% - 30px);
-
-            padding:
-
-              34px
-
-              18px
-
-              25px;
-
-            border-radius: 27px;
-          }
-
-
-          /* ----------------------------------------------
-             TITLE
-             ---------------------------------------------- */
 
           .card-title {
-
-            font-size: 25px;
+            font-size: 6.8vw;
           }
 
-
-          /* ----------------------------------------------
-             INPUT
-             ---------------------------------------------- */
+          .input-label {
+            font-size: 3.4vw;
+          }
 
           .auth-input {
-
-            height: 54px;
-
-            border-radius: 15px;
+            height: 13vw;
           }
-
-
-          /* ----------------------------------------------
-             BUTTON
-             ---------------------------------------------- */
 
           .submit-btn {
+            height: 13.3vw;
 
-            height: 56px;
-
-            border-radius: 15px;
-
-            font-size: 16px;
+            font-size: 4.7vw;
           }
+        }
 
+
+        /* =====================================================
+           REDUCE MOTION
+        ====================================================== */
+
+        @media (prefers-reduced-motion: reduce) {
+
+          *,
+          *::before,
+          *::after {
+            scroll-behavior: auto !important;
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            transition-duration: 0.01ms !important;
+          }
         }
 
       `}</style>
