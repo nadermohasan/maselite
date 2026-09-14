@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { toast } from 'react-hot-toast';
+import Footer from './Footer';
 
 const EMAIL_DOMAIN = 'maselite';
 
@@ -10,22 +11,39 @@ export default function Login() {
   const [view, setView] = useState('student');
   const [loading, setLoading] = useState(false);
 
-  // حقول الطالب
+  // ============ حقول التسجيل / الدخول ============
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [phone, setPhone] = useState('');
 
-  // حقول المعلم
+  // ============ حقول المعلم ============
   const [teacherUsername, setTeacherUsername] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
+
+  const [partnerLabel, setPartnerLabel] = useState('');
+  const [partnerName, setPartnerName] = useState('');
 
   // 🕵️ عدّاد النقر السري على الشعار
   const [secretClicks, setSecretClicks] = useState(0);
 
   const navigate = useNavigate();
 
-  // ============ بوابة المعلم السرية ============
+  // ============ تحميل partner.json ============
+  useEffect(() => {
+    fetch('/partner.json')
+      .then(res => res.json())
+      .then(data => {
+        setPartnerLabel(data.label);
+        setPartnerName(data.name);
+      })
+      .catch(() => {
+        setPartnerLabel('بالتعاون مع:');
+        setPartnerName('');
+      });
+  }, []);
+
+   // ============ بوابة المعلم السرية ============
   useEffect(() => {
     // رابط مباشر: /login?teacher=1
     const params = new URLSearchParams(window.location.search);
@@ -58,6 +76,7 @@ export default function Login() {
       toast.success('🔓 تم فتح بوابة المعلم');
       return;
     }
+
     setTimeout(() => setSecretClicks(0), 2000);
   };
 
@@ -98,12 +117,14 @@ export default function Login() {
     setLoading(true);
 
     try {
+      // التحقق من وجود الحساب
       const { data: profile } = await supabase
         .from('profiles')
         .select('id, role')
         .eq('nationalID', id)
         .maybeSingle();
 
+      // إذا لم يكن مسجلاً → انتقل لصفحة التسجيل
       if (!profile) {
         setView('signup');
         setLoading(false);
@@ -117,6 +138,7 @@ export default function Login() {
         return;
       }
 
+      // تسجيل الدخول
       const email = `${id}@${EMAIL_DOMAIN}`;
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
@@ -139,20 +161,33 @@ export default function Login() {
   };
 
   // ============================
-  // 2) إنشاء حساب طالب جديد
+  // 2) ⭐ إنشاء حساب طالب جديد
   // ============================
   const handleStudentSignup = async (e) => {
     e.preventDefault();
     const id = studentId.trim();
 
-    if (!id) { toast.error('رقم الهوية مطلوب'); return; }
-    if (!/^\d{9}$/.test(id)) { toast.error('رقم الهوية يجب أن يكون 9 أرقام'); return; }
+    // ============ التحقق من صحة البيانات ============
+    if (!id) {
+      toast.error('رقم الهوية مطلوب');
+      return;
+    }
+    if (!/^\d{9}$/.test(id)) {
+      toast.error('رقم الهوية يجب أن يكون 9 أرقام');
+      return;
+    }
     if (!fullName.trim() || fullName.trim().split(/\s+/).length < 4) {
       toast.error('الرجاء إدخال الاسم الرباعي كاملاً');
       return;
     }
-    if (!branch) { toast.error('الرجاء اختيار الفرع الدراسي'); return; }
-    if (!phone.trim()) { toast.error('الرجاء إدخال رقم الجوال'); return; }
+    if (!branch) {
+      toast.error('الرجاء اختيار الفرع الدراسي');
+      return;
+    }
+    if (!phone.trim()) {
+      toast.error('الرجاء إدخال رقم الجوال');
+      return;
+    }
     if (!/^(059|056)\d{7}$/.test(phone.trim())) {
       toast.error('رقم الجوال غير صحيح (يجب أن يبدأ بـ 059 أو 056)');
       return;
@@ -163,6 +198,7 @@ export default function Login() {
     try {
       const email = `${id}@${EMAIL_DOMAIN}`;
 
+      // ============ 1) التحقق المسبق من عدم وجود الحساب ============
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('id')
@@ -176,6 +212,7 @@ export default function Login() {
         return;
       }
 
+      // ============ 2) إنشاء الحساب في auth ============
       const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
         email,
         password: id,
@@ -194,8 +231,11 @@ export default function Login() {
         throw signUpError;
       }
 
-      if (!signUpData.user) throw new Error('فشل إنشاء الحساب');
+      if (!signUpData.user) {
+        throw new Error('فشل إنشاء الحساب - لم يتم إنشاء المستخدم');
+      }
 
+      // ============ 3) إنشاء الملف الشخصي ============
       const { error: profileError } = await supabase
         .from('profiles')
         .insert([{
@@ -208,11 +248,15 @@ export default function Login() {
         }]);
 
       if (profileError) {
+        // لو فشل إنشاء الملف الشخصي، احذف الحساب من auth
         await supabase.auth.signOut();
         throw new Error('فشل حفظ البيانات الشخصية: ' + profileError.message);
       }
 
+      // ============ 4) نجاح ✅ ============
       toast.success('تم إنشاء حسابك بنجاح! جاري تحويلك...');
+      
+      // التوجيه إلى /dashboard (التي ستعيد التوجيه إلى الاختبار أو تعرض رسالة)
       setTimeout(() => {
         navigate('/dashboard', { replace: true });
       }, 800);
@@ -249,6 +293,7 @@ export default function Login() {
         return;
       }
 
+      // التحقق من الدور
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
@@ -273,48 +318,32 @@ export default function Login() {
 
   return (
     <div className="auth-page-container">
-
-      {/* ============================================================ */}
-      {/* Hero Section - قسم البطل                                      */}
-      {/* ============================================================ */}
-      <div className="hero-section">
-        <div className="hero-inner">
-
-          {/* الاسم والمسمى الوظيفي - على اليسار */}
-          <div className="hero-name-block">
-            <h1 className="hero-name">أ. محمد أبو سليمان</h1>
-            <div className="hero-underline"></div>
-            <p className="hero-job">English Teacher</p>
-          </div>
-
-          {/* صورة المعلم */}
-          <div className="hero-image-wrapper">
-            <img
-              src="/hero-teacher.png"
-              alt="أ. محمد أبو سليمان"
-              className="hero-image"
-              draggable={false}
-            />
-          </div>
-
-          {/* الشعار الإنجليزي - على اليمين */}
-          <div className="hero-tagline">
-            <span>Better</span>
-            <span>English</span>
-            <span>Bigger</span>
-            <span>Dreams</span>
-            <div className="hero-tagline-underline"></div>
-          </div>
-
+      {/* الشعار - انقر 5 مرات سريعاً لفتح بوابة المعلم */}
+      <div className="top-logo-container">
+        <div
+          className="premium-logo-wrapper"
+          onClick={handleLogoClick}
+          style={{ cursor: 'default', userSelect: 'none' }}
+        >
+          <img
+            src="https://i.imgur.com/ETr3K2d.png"
+            alt="النخبة"
+            className="premium-logo-img"
+            draggable={false}
+          />
         </div>
       </div>
 
-      {/* ============================================================ */}
-      {/* Auth Card                                                     */}
-      {/* ============================================================ */}
+      <div className="partner-text">
+        <div className="partner-label">{partnerLabel}</div>
+        <div className="partner-name">{partnerName}</div>
+      </div>
+
       <div className="auth-card">
 
-        {/* ============ شاشة تسجيل دخول الطالب ============ */}
+        {/* ============================================================ */}
+        {/* 1) شاشة تسجيل دخول الطالب                                    */}
+        {/* ============================================================ */}
         {view === 'student' && (
           <>
             <h1 className="auth-title">تسجيل الدخول</h1>
@@ -356,12 +385,25 @@ export default function Login() {
           </>
         )}
 
-        {/* ============ شاشة إنشاء حساب ============ */}
+        {/* ============================================================ */}
+        {/* 2) ⭐ شاشة إنشاء حساب طالب جديد (كاملة)                       */}
+        {/* ============================================================ */}
         {view === 'signup' && (
           <>
-            <h1 className="auth-title">إنشاء حساب جديد</h1>
+            <h1 className="auth-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                width="22" height="22" style={{ verticalAlign: 'middle', marginLeft: '6px' }}>
+                <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="8.5" cy="7" r="4"></circle>
+                <line x1="20" y1="8" x2="20" y2="14"></line>
+                <line x1="23" y1="11" x2="17" y2="11"></line>
+              </svg>
+              إنشاء حساب جديد
+            </h1>
 
             <form onSubmit={handleStudentSignup} className="auth-form">
+
+              {/* رقم الهوية */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -386,6 +428,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* الاسم الرباعي */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -406,6 +449,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* الفرع الدراسي */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -429,6 +473,7 @@ export default function Login() {
                 </div>
               </div>
 
+              {/* رقم الجوال */}
               <div className="input-group">
                 <label>
                   <svg className="label-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
@@ -472,10 +517,19 @@ export default function Login() {
           </>
         )}
 
-        {/* ============ شاشة دخول المعلم (سرية) ============ */}
+        {/* ============================================================ */}
+        {/* 3) شاشة دخول المعلم (سرية)                                   */}
+        {/* ============================================================ */}
         {view === 'teacher' && (
           <>
-            <h1 className="auth-title">بوابة المعلم</h1>
+            <h1 className="auth-title">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                width="22" height="22" style={{ verticalAlign: 'middle', marginLeft: '6px' }}>
+                <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+              </svg>
+              بوابة المعلم
+            </h1>
 
             <form onSubmit={handleTeacherLogin} className="auth-form">
               <div className="input-group">
@@ -538,14 +592,10 @@ export default function Login() {
 
       </div>
 
-      {/* Footer مخصص مطابق للصورة */}
-      <footer className="app-footer">
-        <p>تطوير : نادر محمد أبو سليمان</p>
-        <p>© Developed by <b>Nader Sulieman</b></p>
-      </footer>
+      <Footer />
 
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700&display=swap');
 
         :root { color-scheme: light only; }
         * { box-sizing: border-box; }
@@ -558,226 +608,93 @@ export default function Login() {
 
         input, select, button, textarea { font-family: 'Cairo', sans-serif; }
 
-        /* ============================================================
-           الحاوية الرئيسية
-           ============================================================ */
         .auth-page-container {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          direction: rtl;
-          background: linear-gradient(180deg, #dbeafe 0%, #e8f1fc 40%, #eef5ff 100%);
-          padding: 0 0 20px 0;
-          position: relative;
-          overflow-x: hidden;
+          min-height: 100vh; display: flex; flex-direction: column;
+          align-items: center; justify-content: center; direction: rtl;
+          background: linear-gradient(135deg, #eef5ff 0%, #d8e8fc 100%);
+          padding: 20px;
         }
 
-        /* ============================================================
-           Hero Section
-           ============================================================ */
-        .hero-section {
-          width: 100%;
-          max-width: 560px;
-          position: relative;
-          padding: 20px 24px 0;
-          margin-bottom: -30px;
-          z-index: 1;
+        .top-logo-container {
+          margin-bottom: 15px; display: flex; justify-content: center; width: 100%;
+        }
+        .premium-logo-wrapper {
+          position: relative; display: inline-block;
+          animation: floating 4s ease-in-out infinite;
+        }
+        .premium-logo-img {
+          width: 160px; height: auto; display: block;
+          user-select: none; -webkit-user-drag: none;
         }
 
-        .hero-inner {
-          position: relative;
-          width: 100%;
-          min-height: 320px;
-          display: flex;
-          align-items: flex-end;
-          justify-content: center;
+        .partner-text {
+          text-align: center; padding: 8px 20px; border-radius: 40px;
+          margin-bottom: 20px; display: inline-block;
         }
+        .partner-label { font-size: 12px; font-weight: 500; color: #4a8ada; margin-bottom: -6px; }
+        .partner-name { font-size: 16px; font-weight: 700; color: #2c5282; }
 
-        /* صورة المعلم */
-        .hero-image-wrapper {
-          position: relative;
-          z-index: 2;
-          display: flex;
-          justify-content: center;
-          align-items: flex-end;
-          width: 100%;
-          max-width: 340px;
-        }
-
-        .hero-image {
-          width: 100%;
-          max-width: 340px;
-          height: auto;
-          display: block;
-          user-select: none;
-          -webkit-user-drag: none;
-          filter: drop-shadow(0 20px 30px rgba(30, 64, 175, 0.15));
-          animation: heroFadeIn 0.8s ease-out both;
-        }
-
-        /* اسم المعلم (يسار) */
-        .hero-name-block {
-          position: absolute;
-          top: 20%;
-          right: auto;
-          left: 0;
-          z-index: 3;
-          text-align: right;
-          animation: heroSlideRight 0.8s ease-out 0.2s both;
-        }
-
-        .hero-name {
-          font-size: 22px;
-          font-weight: 800;
-          color: #1e3a8a;
-          margin: 0;
-          line-height: 1.3;
-          letter-spacing: -0.5px;
-          white-space: nowrap;
-        }
-
-        .hero-underline {
-          width: 70px;
-          height: 3px;
-          background: linear-gradient(90deg, #2563eb, #60a5fa);
-          border-radius: 3px;
-          margin: 6px 0 0 auto;
-          margin-right: 0;
-        }
-
-        .hero-job {
-          font-size: 14px;
-          font-weight: 500;
-          color: #3b82f6;
-          margin: 8px 0 0 0;
-          letter-spacing: 1.5px;
-          white-space: nowrap;
-        }
-
-        /* الشعار الإنجليزي (يمين أعلى) */
-        .hero-tagline {
-          position: absolute;
-          top: 5%;
-          right: 0;
-          z-index: 3;
-          display: flex;
-          flex-direction: column;
-          align-items: flex-end;
-          gap: 2px;
-          animation: heroSlideLeft 0.8s ease-out 0.3s both;
-        }
-
-        .hero-tagline span {
-          font-family: 'Georgia', 'Times New Roman', serif;
-          font-style: italic;
-          font-size: 20px;
-          font-weight: 500;
-          color: #93c5fd;
-          line-height: 1.15;
-          letter-spacing: 0.5px;
-        }
-
-        .hero-tagline-underline {
-          width: 50px;
-          height: 2px;
-          background: #93c5fd;
-          border-radius: 2px;
-          margin-top: 4px;
-          transform: rotate(-8deg);
-        }
-
-        /* ============================================================
-           Auth Card
-           ============================================================ */
         .auth-card {
-          background: #ffffff;
-          width: calc(100% - 32px);
-          max-width: 500px;
-          padding: 32px 28px 28px;
-          border-radius: 32px 32px 24px 24px;
-          box-shadow: 0 20px 50px rgba(30, 64, 175, 0.12);
-          z-index: 2;
-          position: relative;
-          margin-top: -40px;
+          background: rgba(255, 255, 255, 0.96);
+          backdrop-filter: blur(12px);
+          width: 100%; max-width: 440px; padding: 30px;
+          border-radius: 24px;
+          box-shadow: 0 15px 35px rgba(0, 0, 0, 0.07);
+          border: 1px solid rgba(255, 255, 255, 0.3);
         }
 
         .auth-title {
-          text-align: center;
-          color: #1e3a8a;
-          margin: 0 0 26px 0;
-          font-size: 26px;
-          font-weight: 800;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 8px;
+          text-align: center; color: #2c3e50;
+          margin: 0 0 22px 0; font-size: 22px; font-weight: 700;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
+        }
+        .auth-subtitle {
+          text-align: center; color: #64748b; font-size: 13px;
+          margin: -14px 0 18px 0;
         }
 
-        .auth-form { display: flex; flex-direction: column; gap: 18px; }
+        .auth-form { display: flex; flex-direction: column; gap: 16px; }
 
         .input-group label {
-          display: flex;
-          align-items: center;
-          justify-content: flex-end;
-          gap: 8px;
-          font-size: 15px;
-          font-weight: 700;
-          color: #1e40af;
-          margin-bottom: 10px;
+          display: flex; align-items: center; gap: 8px;
+          font-size: 14px; font-weight: 600; color: #4a5568; margin-bottom: 7px;
         }
-        .label-icon { width: 18px; height: 18px; color: #3b82f6; }
+        .label-icon { width: 16px; height: 16px; color: #4a8ada; }
         .required-star { color: #ef4444; font-weight: 700; }
 
         .input-wrapper input, .input-wrapper select {
-          width: 100%;
-          padding: 16px 18px;
-          border: 1.5px solid #dbeafe;
-          border-radius: 14px;
-          font-size: 15px;
-          background: #f8fafc;
-          color: #1e293b;
-          transition: all 0.25s ease;
-          text-align: right;
-          outline: none;
-        }
-        .input-wrapper input::placeholder {
-          color: #94a3b8;
-          font-weight: 500;
+          width: 100%; padding: 13px 15px;
+          border: 1.5px solid #e2e8f0; border-radius: 12px;
+          font-size: 14px; background: #f8fafc; color: #1e293b;
+          transition: all 0.3s ease; text-align: right; outline: none;
         }
         .input-wrapper input:focus, .input-wrapper select:focus {
-          border-color: #3b82f6;
-          background: #ffffff;
-          box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+          border-color: #4a8ada; background: #ffffff;
+          box-shadow: 0 0 0 4px rgba(74, 138, 218, 0.1);
+        }
+
+        .input-hint {
+          font-size: 11px; color: #94a3b8;
+          margin-top: 5px; padding-right: 4px;
         }
 
         .submit-btn {
-          width: 100%;
-          padding: 16px;
-          border: none;
-          border-radius: 14px;
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
-          color: white;
-          font-size: 17px;
-          font-weight: 700;
-          cursor: pointer;
-          transition: 0.3s;
-          box-shadow: 0 10px 20px rgba(37, 99, 235, 0.3);
-          margin-top: 8px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          gap: 10px;
+          width: 100%; padding: 14px; border: none; border-radius: 12px;
+          background: linear-gradient(135deg, #4a8ada, #3b76c4);
+          color: white; font-size: 16px; font-weight: 700; cursor: pointer;
+          transition: 0.3s; box-shadow: 0 8px 15px rgba(74, 138, 218, 0.25);
+          margin-top: 6px;
+          display: flex; align-items: center; justify-content: center; gap: 8px;
         }
         .submit-btn:hover:not(:disabled) {
           transform: translateY(-2px);
-          box-shadow: 0 14px 28px rgba(37, 99, 235, 0.4);
+          box-shadow: 0 12px 20px rgba(74, 138, 218, 0.35);
         }
         .submit-btn:disabled { opacity: 0.6; cursor: not-allowed; }
 
         .btn-spinner {
-          width: 18px; height: 18px;
-          border: 2.5px solid rgba(255, 255, 255, 0.4);
+          width: 16px; height: 16px;
+          border: 2px solid rgba(255, 255, 255, 0.4);
           border-top-color: #fff;
           border-radius: 50%;
           animation: spin 0.7s linear infinite;
@@ -786,77 +703,23 @@ export default function Login() {
         @keyframes spin { to { transform: rotate(360deg); } }
 
         .toggle-view {
-          text-align: center;
-          margin-top: 20px;
-          font-size: 15px;
-          color: #64748b;
-          font-weight: 500;
+          text-align: center; margin-top: 18px;
+          font-size: 14px; color: #4a5568;
         }
         .toggle-view span {
-          color: #2563eb;
-          cursor: pointer;
-          font-weight: 800;
-          margin-right: 4px;
+          color: #4a8ada; cursor: pointer;
+          font-weight: 700; margin-right: 5px;
         }
         .toggle-view span:hover { text-decoration: underline; }
 
-        /* ============================================================
-           Footer
-           ============================================================ */
-        .app-footer {
-          padding: 24px 20px 16px;
-          text-align: center;
-          font-size: 13px;
-          color: #64748b;
-          background: transparent;
-          direction: rtl;
-          font-family: 'Cairo', sans-serif;
-          line-height: 1.6;
-        }
-        .app-footer p { margin: 0; }
-
-        /* ============================================================
-           Animations
-           ============================================================ */
-        @keyframes heroFadeIn {
-          from { opacity: 0; transform: translateY(20px); }
-          to { opacity: 1; transform: translateY(0); }
-        }
-        @keyframes heroSlideRight {
-          from { opacity: 0; transform: translateX(-20px); }
-          to { opacity: 1; transform: translateX(0); }
-        }
-        @keyframes heroSlideLeft {
-          from { opacity: 0; transform: translateX(20px); }
-          to { opacity: 1; transform: translateX(0); }
+        @keyframes floating {
+          0%, 100% { transform: translateY(0); }
+          50% { transform: translateY(-10px); }
         }
 
-        /* ============================================================
-           Responsive
-           ============================================================ */
         @media (max-width: 480px) {
-          .hero-section { padding: 12px 16px 0; min-height: 260px; }
-          .hero-inner { min-height: 260px; }
-          .hero-image { max-width: 240px; }
-          .hero-image-wrapper { max-width: 240px; }
-          .hero-name { font-size: 17px; }
-          .hero-job { font-size: 12px; letter-spacing: 1px; }
-          .hero-tagline span { font-size: 15px; }
-          .hero-name-block { top: 15%; }
-          .hero-tagline { top: 2%; }
-          .auth-card {
-            padding: 26px 20px 24px;
-            border-radius: 28px 28px 20px 20px;
-          }
-          .auth-title { font-size: 22px; margin-bottom: 20px; }
-          .input-wrapper input, .input-wrapper select { padding: 14px 16px; font-size: 14px; }
-          .submit-btn { padding: 15px; font-size: 16px; }
-        }
-
-        @media (min-width: 481px) and (max-width: 768px) {
-          .hero-image { max-width: 300px; }
-          .hero-name { font-size: 20px; }
-          .hero-tagline span { font-size: 18px; }
+          .premium-logo-img { width: 140px; }
+          .auth-card { padding: 25px 18px; margin: 10px; }
         }
       `}</style>
     </div>
