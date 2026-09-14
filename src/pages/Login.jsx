@@ -43,13 +43,26 @@ export default function Login() {
       });
   }, []);
 
-  // ============ بوابة المعلم السرية ============
+   // ============ بوابة المعلم السرية ============
   useEffect(() => {
     // رابط مباشر: /login?teacher=1
     const params = new URLSearchParams(window.location.search);
     if (params.get('teacher') === '1') {
       setView('teacher');
     }
+
+    // اختصار لوحة المفاتيح: Ctrl + Shift + T
+    const handleKeyDown = (e) => {
+      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
+        e.preventDefault();
+        resetForm();
+        setView('teacher');
+        toast.success('🔓 تم فتح بوابة المعلم');
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
 
   // 🖱️ 5 نقرات متتالية على الشعار
   const handleLogoClick = () => {
