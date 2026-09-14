@@ -39,7 +39,7 @@ export default function Login() {
       })
       .catch(() => {
         setPartnerLabel('بالتعاون مع:');
-        setPartnerName('مركز ماكس');
+        setPartnerName('');
       });
   }, []);
 
@@ -50,19 +50,6 @@ export default function Login() {
     if (params.get('teacher') === '1') {
       setView('teacher');
     }
-
-    // اختصار لوحة المفاتيح: Ctrl + Shift + T
-    const handleKeyDown = (e) => {
-      if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 't') {
-        e.preventDefault();
-        resetForm();
-        setView('teacher');
-        toast.success('🔓 تم فتح بوابة المعلم');
-      }
-    };
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, []);
 
   // 🖱️ 5 نقرات متتالية على الشعار
   const handleLogoClick = () => {
@@ -346,7 +333,7 @@ export default function Login() {
         {/* ============================================================ */}
         {view === 'student' && (
           <>
-            <h1 className="auth-title">تسجيل دخول الطالب</h1>
+            <h1 className="auth-title">تسجيل الدخول</h1>
 
             <form onSubmit={handleStudentLogin} className="auth-form">
               <div className="input-group">
@@ -362,7 +349,7 @@ export default function Login() {
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
-                    placeholder="أدخل رقم الهوية المكوّن من 9 أرقام"
+                    placeholder="أدخل رقم الهوية"
                     maxLength={9}
                     required
                     className="auth-input"
@@ -419,15 +406,12 @@ export default function Login() {
                     type="text"
                     value={studentId}
                     onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
-                    placeholder="مثال: 406114967"
+                    placeholder="مثال: 123456789"
                     maxLength={9}
                     required
                     className="auth-input"
                     style={{ direction: 'ltr', textAlign: 'right' }}
                   />
-                </div>
-                <div className="input-hint">
-                  يجب أن يكون 9 أرقام فقط
                 </div>
               </div>
 
@@ -449,9 +433,6 @@ export default function Login() {
                     required
                     className="auth-input"
                   />
-                </div>
-                <div className="input-hint">
-                  أدخل الاسم الرباعي كاملاً (4 كلمات على الأقل)
                 </div>
               </div>
 
@@ -500,9 +481,6 @@ export default function Login() {
                     style={{ direction: 'ltr', textAlign: 'right' }}
                   />
                 </div>
-                <div className="input-hint">
-                  يبدأ بـ 059 أو 056 (10 أرقام)
-                </div>
               </div>
 
               <button type="submit" className="submit-btn" disabled={loading}>
@@ -512,7 +490,7 @@ export default function Login() {
                     جاري إنشاء الحساب...
                   </>
                 ) : (
-                  'إنشاء الحساب والدخول'
+                  'إنشاء الحساب'
                 )}
               </button>
             </form>
@@ -537,7 +515,7 @@ export default function Login() {
                 <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
                 <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
               </svg>
-              دخول المعلم
+              بوابة المعلم
             </h1>
 
             <form onSubmit={handleTeacherLogin} className="auth-form">
@@ -554,7 +532,7 @@ export default function Login() {
                     type="text"
                     value={teacherUsername}
                     onChange={(e) => setTeacherUsername(e.target.value)}
-                    placeholder="أدخل اسم المستخدم"
+                    placeholder="اسم المستخدم"
                     required
                     autoComplete="username"
                     className="auth-input"
@@ -593,7 +571,7 @@ export default function Login() {
             <div className="toggle-view">
               <p>
                 لست معلماً؟{' '}
-                <span onClick={goToStudentLogin}>العودة لتسجيل دخول الطالب</span>
+                <span onClick={goToStudentLogin}>العودة لتسجيل الدخول</span>
               </p>
             </div>
           </>
