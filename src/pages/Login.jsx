@@ -11,29 +11,21 @@ export default function Login() {
   const [view, setView] = useState('student');
   const [loading, setLoading] = useState(false);
 
-  // ==============================
   // STUDENT DATA
-  // ==============================
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [phone, setPhone] = useState('');
 
-  // ==============================
   // TEACHER DATA
-  // ==============================
   const [teacherUsername, setTeacherUsername] = useState('');
   const [teacherPassword, setTeacherPassword] = useState('');
 
-  // ==============================
   // PARTNER
-  // ==============================
   const [partnerLabel, setPartnerLabel] = useState('');
   const [partnerName, setPartnerName] = useState('');
 
-  // ==============================
-  // SECRET TEACHER ACCESS
-  // ==============================
+  // SECRET ACCESS
   const [secretClicks, setSecretClicks] = useState(0);
 
   const navigate = useNavigate();
@@ -308,247 +300,277 @@ export default function Login() {
   };
 
   return (
-    <div className="login-page">
-      {/* القسم العلوي بالكامل */}
-      <div className="hero-section">
-        {/* الدوائر المتداخلة خلف المعلم */}
-        <div className="rings-container">
-          <div className="ring ring-inner" />
-          <div className="ring ring-middle" />
-          <div className="ring ring-outer" />
-        </div>
+    <div className="app-viewport">
+      <div className="login-container">
+        
+        {/* HERO HEADER */}
+        <header className="hero-header">
+          <div className="bg-circle circle-front" />
 
-        {/* النصوص اليسرى: اسم المعلم والتخصص */}
-        <div className="teacher-info">
-          <h1 className="teacher-name">أ. محمد أبو سليمان</h1>
-          <div className="brush-stroke">
-            <svg viewBox="0 0 120 10" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M2 7C30 2 90 2 118 6C95 3 45 3 2 7Z" fill="#1b6edc" />
-            </svg>
+          <div className="teacher-meta">
+            <h1 className="teacher-title">أ. محمد أبو سليمان</h1>
+            
+            <div className="brush-underline">
+              <svg viewBox="0 0 100 10" fill="none" preserveAspectRatio="none">
+                <path d="M2 5C30 2 70 2 98 5C70 4 30 4 2 5Z" fill="#2575e6" />
+              </svg>
+            </div>
+
+            <span className="teacher-sub">English Teacher</span>
           </div>
-          <span className="teacher-subtitle">English Teacher</span>
-        </div>
 
-        {/* النص الأيمن: العبارة الإنجليزية المائلة بخط اليد */}
-        <div className="motto-container">
-          <p>Better</p>
-          <p>English</p>
-          <p>Bigger</p>
-          <p>Dreams</p>
-          <svg className="motto-line" viewBox="0 0 50 6" fill="none">
-            <path d="M2 4 C 18 1, 35 1, 48 4" stroke="#a0ccf7" strokeWidth="2" strokeLinecap="round" />
-          </svg>
-        </div>
+          <div className="motto-handwritten">
+            <div>Better</div>
+            <div>English</div>
+            <div>Bigger</div>
+            <div>Dreams</div>
+          </div>
 
-        {/* صورة المعلم المكبّرة (Zoomed In) */}
-        <div className="teacher-photo-wrapper" onClick={handleLogoClick}>
-          <img
-            src={TEACHER_IMAGE}
-            alt="أ. محمد أبو سليمان"
-            className="teacher-photo"
-            draggable={false}
-          />
-        </div>
+          <div className="teacher-frame" onClick={handleLogoClick}>
+            <img
+              src={TEACHER_IMAGE}
+              alt="أ. محمد أبو سليمان"
+              className="teacher-img"
+              draggable={false}
+            />
+          </div>
+        </header>
+
+        {/* AUTH CARD */}
+        <main className="auth-card">
+          {view === 'student' && (
+            <>
+              <h2 className="card-heading">تسجيل الدخول</h2>
+
+              <form onSubmit={handleStudentLogin} className="auth-form">
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg
+                      className="field-icon"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2.2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    >
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                      <circle cx="12" cy="7" r="4" />
+                    </svg>
+                    <span className="field-label">رقم الهوية</span>
+                  </div>
+
+                  <input
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                    placeholder="أدخل رقم الهوية"
+                    maxLength={9}
+                    required
+                    className="styled-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+
+                <button type="submit" className="primary-btn" disabled={loading}>
+                  {loading ? 'جاري التحميل...' : 'دخول الاختبار'}
+                </button>
+              </form>
+
+              <div className="switch-prompt">
+                <span className="prompt-text">ليس لديك حساب؟</span>
+                <button type="button" onClick={goToSignup} className="prompt-link">
+                  إنشاء حساب جديد
+                </button>
+              </div>
+            </>
+          )}
+
+          {view === 'signup' && (
+            <>
+              <div className="card-header-sub">
+                <h2 className="card-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="24" height="24">
+                    <path d="M16 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                    <circle cx="8.5" cy="7" r="4"></circle>
+                    <line x1="20" y1="8" x2="20" y2="14"></line>
+                    <line x1="23" y1="11" x2="17" y2="11"></line>
+                  </svg>
+                  إنشاء حساب جديد
+                </h2>
+                <p className="card-desc">أدخل بياناتك للبدء في الاختبارات الإلكترونية</p>
+              </div>
+
+              <form onSubmit={handleStudentSignup} className="auth-form compact-form">
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="4" width="18" height="16" rx="2"></rect>
+                      <line x1="7" y1="9" x2="17" y2="9"></line>
+                      <line x1="7" y1="13" x2="17" y2="13"></line>
+                      <line x1="7" y1="17" x2="13" y2="17"></line>
+                    </svg>
+                    <span className="field-label">رقم الهوية <span className="required-star">*</span></span>
+                  </div>
+                  <input
+                    type="text"
+                    value={studentId}
+                    onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
+                    placeholder="مثال: 123456789"
+                    maxLength={9}
+                    required
+                    className="styled-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span className="field-label">الاسم الرباعي <span className="required-star">*</span></span>
+                  </div>
+                  <input
+                    type="text"
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder="مثال: نادر محمد حسن أبو سليمان"
+                    required
+                    className="styled-input"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                      <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                    </svg>
+                    <span className="field-label">الفرع الدراسي <span className="required-star">*</span></span>
+                  </div>
+                  <select
+                    value={branch}
+                    onChange={(e) => setBranch(e.target.value)}
+                    required
+                    className="styled-input select-box"
+                  >
+                    <option value="" disabled>— اختر الفرع —</option>
+                    <option value="العلمي">العلمي</option>
+                    <option value="الأدبي">الأدبي</option>
+                  </select>
+                </div>
+
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="5" y="2" width="14" height="20" rx="2" ry="2"></rect>
+                      <line x1="12" y1="18" x2="12.01" y2="18"></line>
+                    </svg>
+                    <span className="field-label">رقم الجوال <span className="required-star">*</span></span>
+                  </div>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value.replace(/\s/g, ''))}
+                    placeholder="059xxxxxxx"
+                    maxLength={10}
+                    required
+                    className="styled-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+
+                <button type="submit" className="primary-btn" disabled={loading}>
+                  {loading ? (
+                    <>
+                      <span className="btn-spinner"></span>
+                      جاري إنشاء الحساب...
+                    </>
+                  ) : (
+                    'إنشاء الحساب'
+                  )}
+                </button>
+              </form>
+
+              <div className="switch-prompt">
+                <span className="prompt-text">لديك حساب بالفعل؟</span>
+                <button type="button" onClick={goToStudentLogin} className="prompt-link">
+                  تسجيل الدخول
+                </button>
+              </div>
+            </>
+          )}
+
+          {view === 'teacher' && (
+            <>
+              <div className="card-header-sub">
+                <h2 className="card-heading" style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" width="22" height="22">
+                    <path d="M22 10v6M2 10l10-5 10 5-10 5z"></path>
+                    <path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"></path>
+                  </svg>
+                  بوابة المعلم
+                </h2>
+                <p className="card-desc">تسجيل الدخول إلى لوحة التحكم</p>
+              </div>
+
+              <form onSubmit={handleTeacherLogin} className="auth-form">
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+                      <circle cx="12" cy="7" r="4"></circle>
+                    </svg>
+                    <span className="field-label">اسم المستخدم</span>
+                  </div>
+                  <input
+                    type="text"
+                    value={teacherUsername}
+                    onChange={(e) => setTeacherUsername(e.target.value)}
+                    placeholder="اسم المستخدم"
+                    required
+                    className="styled-input"
+                    style={{ direction: 'ltr', textAlign: 'right' }}
+                  />
+                </div>
+
+                <div className="form-group">
+                  <div className="label-wrapper">
+                    <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect>
+                      <path d="M7 11V7a5 5 0 0 1 10 0v4"></path>
+                    </svg>
+                    <span className="field-label">كلمة المرور</span>
+                  </div>
+                  <input
+                    type="password"
+                    value={teacherPassword}
+                    onChange={(e) => setTeacherPassword(e.target.value)}
+                    placeholder="•••••••"
+                    required
+                    className="styled-input"
+                    style={{ direction: 'rtl', textAlign: 'right' }}
+                  />
+                </div>
+
+                <button type="submit" className="primary-btn" disabled={loading}>
+                  {loading ? 'جاري التحقق...' : 'دخول لوحة المعلم'}
+                </button>
+              </form>
+
+              <div className="switch-prompt">
+                <button type="button" onClick={goToStudentLogin} className="prompt-link">
+                  العودة لتسجيل الدخول
+                </button>
+              </div>
+            </>
+          )}
+        </main>
+        <Footer />
       </div>
 
-      {/* كارت تسجيل الدخول الأبيض */}
-      <main className="auth-card">
-        {view === 'student' && (
-          <>
-            <h2 className="card-title">تسجيل الدخول</h2>
-
-            <form onSubmit={handleStudentLogin} className="auth-form">
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">رقم الهوية</span>
-                  <svg
-                    className="label-icon"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2.2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  >
-                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                    <circle cx="12" cy="7" r="4" />
-                  </svg>
-                </div>
-
-                <input
-                  type="text"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
-                  placeholder="أدخل رقم الهوية"
-                  maxLength={9}
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري التحميل...' : 'دخول الاختبار'}
-              </button>
-            </form>
-
-            <div className="toggle-view">
-              <span className="toggle-muted">ليس لديك حساب؟</span>
-              <button type="button" onClick={goToSignup} className="toggle-link">
-                إنشاء حساب جديد
-              </button>
-            </div>
-          </>
-        )}
-
-        {view === 'signup' && (
-          <>
-            <div className="card-header">
-              <h2 className="card-title">إنشاء حساب جديد</h2>
-              <p className="card-subtitle">أدخل بياناتك للبدء في الاختبارات الإلكترونية</p>
-            </div>
-
-            <form onSubmit={handleStudentSignup} className="auth-form signup-form">
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">رقم الهوية *</span>
-                </div>
-                <input
-                  type="text"
-                  value={studentId}
-                  onChange={(e) => setStudentId(e.target.value.replace(/\s/g, ''))}
-                  placeholder="مثال: 123456789"
-                  maxLength={9}
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">الاسم الرباعي *</span>
-                </div>
-                <input
-                  type="text"
-                  value={fullName}
-                  onChange={(e) => setFullName(e.target.value)}
-                  placeholder="أدخل الاسم الرباعي"
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">الفرع الدراسي *</span>
-                </div>
-                <select
-                  value={branch}
-                  onChange={(e) => setBranch(e.target.value)}
-                  required
-                  className="auth-input select-input"
-                >
-                  <option value="" disabled>— اختر الفرع —</option>
-                  <option value="العلمي">العلمي</option>
-                  <option value="الأدبي">الأدبي</option>
-                </select>
-              </div>
-
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">رقم الجوال *</span>
-                </div>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value.replace(/\s/g, ''))}
-                  placeholder="059xxxxxxx"
-                  maxLength={10}
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري إنشاء الحساب...' : 'إنشاء الحساب'}
-              </button>
-            </form>
-
-            <div className="toggle-view">
-              <span className="toggle-muted">لديك حساب بالفعل؟</span>
-              <button type="button" onClick={goToStudentLogin} className="toggle-link">
-                تسجيل الدخول
-              </button>
-            </div>
-          </>
-        )}
-
-        {view === 'teacher' && (
-          <>
-            <div className="card-header">
-              <h2 className="card-title">بوابة المعلم</h2>
-              <p className="card-subtitle">تسجيل الدخول إلى لوحة التحكم</p>
-            </div>
-
-            <form onSubmit={handleTeacherLogin} className="auth-form">
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">اسم المستخدم</span>
-                </div>
-                <input
-                  type="text"
-                  value={teacherUsername}
-                  onChange={(e) => setTeacherUsername(e.target.value)}
-                  placeholder="اسم المستخدم"
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <div className="input-group">
-                <div className="label-row">
-                  <span className="input-label">كلمة المرور</span>
-                </div>
-                <input
-                  type="password"
-                  value={teacherPassword}
-                  onChange={(e) => setTeacherPassword(e.target.value)}
-                  placeholder="•••••••"
-                  required
-                  className="auth-input"
-                />
-              </div>
-
-              <button type="submit" className="submit-btn" disabled={loading}>
-                {loading ? 'جاري التحقق...' : 'دخول لوحة المعلم'}
-              </button>
-            </form>
-
-            <div className="toggle-view">
-              <button type="button" onClick={goToStudentLogin} className="toggle-link">
-                العودة لتسجيل الدخول
-              </button>
-            </div>
-          </>
-        )}
-      </main>
-
-      {(partnerLabel || partnerName) && (
-        <div className="partner-section">
-          {partnerLabel && <div className="partner-label">{partnerLabel}</div>}
-          {partnerName && <div className="partner-name">{partnerName}</div>}
-        </div>
-      )}
-
-      {/* ذيل الصفحة */}
-      <footer className="page-footer">
-        <p className="developer-info">تطوير : نادر محمد أبو سليمان</p>
-        <p className="copyright-info">© Developed by Nader Sulieman</p>
-        <Footer />
-      </footer>
-
-      {/* =====================================================
-          CSS RULES
-      ====================================================== */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Caveat:wght@600;700&display=swap');
 
@@ -556,361 +578,359 @@ export default function Login() {
           box-sizing: border-box;
         }
 
-        html, body, #root {
-          margin: 0;
-          padding: 0;
+        .app-viewport {
           width: 100%;
-          min-height: 100%;
+          min-height: 100vh;
+          background: #dbeafb;
+          display: flex;
+          justify-content: center;
+          align-items: flex-start;
         }
 
-        .login-page {
+        .login-container {
           direction: rtl;
           font-family: 'Cairo', sans-serif;
-          min-height: 100vh;
           width: 100%;
-          max-width: 440px;
-          margin: 0 auto;
-          background: linear-gradient(180deg, #edf4fc 0%, #e2eefb 45%, #d8e8fa 100%);
+          max-width: 420px;
+          min-height: 100vh;
+          background: linear-gradient(180deg, #e3effc 0%, #dbe8f7 40%, #e1eefb 100%);
           position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
-          justify-content: space-between;
-          padding-bottom: 20px;
+          padding-bottom: 24px;
           overflow: hidden;
         }
 
-        /* ----------------------------------------------------
-           HERO SECTION & TEACHER ZOOM
-        ---------------------------------------------------- */
-        .hero-section {
+        /* ----------------------------------
+           HERO HEADER & BACKGROUND CIRCLES
+        ---------------------------------- */
+        .hero-header {
           position: relative;
           width: 100%;
-          height: 360px;
+          height: 380px;
           overflow: hidden;
         }
 
-        /* الدوائر البيضاء المتداخلة خلف المعلم */
-        .rings-container {
+        .bg-circle {
           position: absolute;
-          top: 10px;
-          right: -70px;
-          width: 420px;
-          height: 420px;
+          border-radius: 50%;
           pointer-events: none;
+        }
+
+        .bg-circle.circle-back {
+          top: 110px;
+          right: -50px;
+          width: 340px;
+          height: 340px;
+          background: #cce1f8;
           z-index: 1;
         }
 
-        .ring {
+
+        .teacher-meta {
           position: absolute;
-          border-radius: 50%;
-          border: 1px solid rgba(255, 255, 255, 0.45);
-        }
-
-        .ring-inner {
-          top: 90px;
-          right: 90px;
-          width: 240px;
-          height: 240px;
-          background: rgba(255, 255, 255, 0.35);
-          box-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
-        }
-
-        .ring-middle {
-          top: 50px;
-          right: 50px;
-          width: 320px;
-          height: 320px;
-          background: rgba(255, 255, 255, 0.2);
-        }
-
-        .ring-outer {
-          top: 0;
-          right: 0;
-          width: 420px;
-          height: 420px;
-          background: rgba(255, 255, 255, 0.1);
-        }
-
-        /* معلومات المعلم الجانبية اليسرى */
-        .teacher-info {
-          position: absolute;
-          top: 72px;
-          left: 20px;
+          top: 172px;
+          left: 25px;
           z-index: 4;
           display: flex;
           flex-direction: column;
           align-items: flex-start;
         }
 
-        .teacher-name {
+        .teacher-title {
           margin: 0;
-          font-size: 22px;
-          font-weight: 800;
-          color: #0d3862;
+          font-size: 20px;
+          font-weight: 900;
+          color: #0a345c;
+          letter-spacing: -0.3px;
           white-space: nowrap;
         }
 
-        .brush-stroke {
-          width: 110px;
-          height: 8px;
-          margin-top: 2px;
-          margin-bottom: 6px;
+        .brush-underline {
+          width: 105px;
+          height: 6px;
+          margin-top: -8px;
+          margin-bottom: 8px;
         }
 
-        .brush-stroke svg {
+        .brush-underline svg {
           width: 100%;
           height: 100%;
         }
 
-        .teacher-subtitle {
-          font-family: Arial, sans-serif;
-          font-size: 13px;
-          color: #7296bc;
-          letter-spacing: 1.5px;
-          font-weight: 500;
+        .teacher-sub {
+          font-family: Arial, Helvetica, sans-serif;
+          font-size: 13.5px;
+          color: #6a8cb2;
+          letter-spacing: 2px;
+          font-weight: 600;
         }
 
-        /* المقولة المائلة بخط اليد جهة اليمين العلوي */
-        .motto-container {
+        .motto-handwritten {
           position: absolute;
-          top: 30px;
+          top: 36px;
           right: 22px;
           z-index: 2;
           direction: ltr;
           text-align: left;
-          transform: rotate(-10deg);
+          transform: rotate(-9deg);
           font-family: 'Caveat', cursive;
-          color: rgba(140, 180, 218, 0.5);
-          font-size: 21px;
+          color: #9ac3ec;
+          font-size: 22px;
           line-height: 1.05;
           font-weight: 700;
         }
 
-        .motto-container p {
+        .motto-handwritten div {
           margin: 0;
         }
 
-        .motto-line {
-          width: 45px;
-          height: 6px;
-          margin-top: 2px;
-        }
-
-        /* حاوية الصورة المكبّرة (Zoom & Position) */
-        .teacher-photo-wrapper {
+        .teacher-frame {
           position: absolute;
-          top: -10px;
-          right: -30px;
+          top: 48px;
+          right: -10px;
           width: 320px;
-          height: 380px;
+          height: 365px;
           z-index: 3;
           cursor: pointer;
+          -webkit-mask-image: radial-gradient(ellipse at 55% 30%, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 72%),
+                              linear-gradient(to bottom, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 80%);
+          -webkit-mask-composite: source-in;
+          mask-image: radial-gradient(ellipse at 55% 30%, rgba(0,0,0,1) 10%, rgba(0,0,0,0) 72%),
+                      linear-gradient(to bottom, rgba(0,0,0,1) 15%, rgba(0,0,0,0) 115%);
+          mask-composite: intersect;
         }
 
-        .teacher-photo {
+        .teacher-img {
           width: 100%;
           height: 100%;
-          object-fit: cover;
-          object-position: top center;
-          transform: scale(1.15); /* إعطاء الزوم المطلوب */
+          object-fit: contain;
+          object-position: top right;
+          transform: scale(1.18) translateY(10px);
           transform-origin: top right;
         }
 
-        /* ----------------------------------------------------
-           CARD FORM & BUTTONS
-        ---------------------------------------------------- */
+        /* ----------------------------------
+           AUTH CARD
+        ---------------------------------- */
         .auth-card {
           position: relative;
           z-index: 10;
           width: calc(100% - 36px);
-          margin-top: -35px;
+          margin-top: -26px;
           background: #ffffff;
-          border-radius: 26px;
-          padding: 28px 22px;
-          box-shadow: 0 10px 30px rgba(18, 52, 88, 0.07);
+          border-radius: 32px;
+          padding: 34px 24px 28px 24px;
+          box-shadow: 0 10px 30px rgba(10, 40, 80, 0.05);
           display: flex;
           flex-direction: column;
           align-items: center;
         }
 
-        .card-header {
+        .card-heading {
+          margin: 0 0 24px 0;
+          font-size: 28px;
+          font-weight: 900;
+          color: #0a345c;
           text-align: center;
-          margin-bottom: 18px;
+        }
+
+        .card-header-sub {
+          text-align: center;
+          margin-bottom: 16px;
           width: 100%;
         }
 
-        .card-title {
-          margin: 0 0 18px 0;
-          font-size: 23px;
-          font-weight: 800;
-          color: #0d3862;
-          text-align: center;
-        }
-
-        .card-subtitle {
-          margin: 4px 0 0 0;
+        .card-desc {
+          margin: -14px 0 16px 0;
           font-size: 13px;
-          color: #7b91a7;
+          color: #728da9;
         }
 
         .auth-form {
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 16px;
+          gap: 18px;
         }
 
-        .signup-form {
+        .compact-form {
           gap: 12px;
         }
 
-        .input-group {
+        .form-group {
           display: flex;
           flex-direction: column;
-          gap: 6px;
+          gap: 8px;
           width: 100%;
         }
 
-        .label-row {
+        .label-wrapper {
           display: flex;
           align-items: center;
           justify-content: flex-start;
           gap: 6px;
         }
 
-        .input-label {
-          font-size: 14.5px;
+        .field-label {
+          font-size: 15px;
+          font-weight: 800;
+          color: #0a345c;
+        }
+
+        .field-icon {
+          width: 19px;
+          height: 19px;
+          color: #2575e6;
+        }
+        
+        .required-star {
+          color: #ef4444;
           font-weight: 700;
-          color: #0d3862;
         }
 
-        .label-icon {
-          width: 18px;
-          height: 18px;
-          color: #2b77e5;
-        }
-
-        .auth-input {
+        .styled-input {
           width: 100%;
-          height: 50px;
-          padding: 0 16px;
-          background-color: #f4f7fb;
-          border: 1px solid #e1e8f0;
-          border-radius: 13px;
-          font-size: 14.5px;
-          color: #1a202c;
+          height: 54px;
+          padding: 0 18px;
+          background-color: #f8fafc;
+          border: 1.5px solid #d8e5f2;
+          border-radius: 16px;
+          font-size: 15px;
+          color: #0a345c;
           outline: none;
-          transition: all 0.2s ease;
+          transition: border-color 0.2s ease, box-shadow 0.2s ease;
           text-align: right;
+          font-family: 'Cairo', sans-serif;
         }
 
-        .auth-input::placeholder {
-          color: #9ab0c7;
-          font-size: 13.5px;
+        .styled-input::placeholder {
+          color: #9cb2cb;
+          font-size: 14.5px;
         }
 
-        .auth-input:focus {
+        .styled-input:focus {
           background-color: #ffffff;
-          border-color: #2b77e5;
-          box-shadow: 0 0 0 3px rgba(43, 119, 229, 0.1);
+          border-color: #2575e6;
+          box-shadow: 0 0 0 3.5px rgba(37, 117, 230, 0.12);
         }
 
-        .select-input {
+        .select-box {
           cursor: pointer;
         }
 
-        .submit-btn {
+        .primary-btn {
           width: 100%;
-          height: 52px;
-          margin-top: 4px;
-          background: linear-gradient(135deg, #2b76df 0%, #1f64cc 100%);
+          height: 54px;
+          margin-top: 6px;
+          background: #2575e6;
           border: none;
-          border-radius: 13px;
+          border-radius: 16px;
           color: #ffffff;
-          font-size: 16.5px;
+          font-size: 18px;
           font-weight: 800;
           cursor: pointer;
-          box-shadow: 0 7px 18px rgba(35, 107, 212, 0.28);
-          transition: all 0.2s ease;
+          box-shadow: 0 8px 20px rgba(37, 117, 230, 0.25);
+          transition: transform 0.15s ease, box-shadow 0.15s ease;
+          font-family: 'Cairo', sans-serif;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 8px;
         }
 
-        .submit-btn:hover:not(:disabled) {
+        .primary-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 9px 20px rgba(35, 107, 212, 0.35);
+          box-shadow: 0 10px 24px rgba(37, 117, 230, 0.32);
         }
 
-        .submit-btn:disabled {
+        .primary-btn:disabled {
           opacity: 0.7;
           cursor: not-allowed;
         }
+        
+        .btn-spinner {
+          width: 16px;
+          height: 16px;
+          border: 2.5px solid rgba(255, 255, 255, 0.4);
+          border-top-color: #fff;
+          border-radius: 50%;
+          animation: spin 0.7s linear infinite;
+          display: inline-block;
+        }
+        
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
 
-        .toggle-view {
-          margin-top: 20px;
+        .switch-prompt {
+          margin-top: 24px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          font-size: 13.5px;
+          font-size: 14.5px;
         }
 
-        .toggle-muted {
-          color: #61788f;
-          font-weight: 500;
+        .prompt-text {
+          color: #6883a0;
+          font-weight: 600;
         }
 
-        .toggle-link {
+        .prompt-link {
           background: none;
           border: none;
           padding: 0;
-          color: #2b77e5;
+          color: #2575e6;
           font-weight: 800;
           font-family: inherit;
           font-size: inherit;
           cursor: pointer;
         }
 
-        .toggle-link:hover {
+        .prompt-link:hover {
           text-decoration: underline;
         }
 
-        /* ----------------------------------------------------
+        /* ----------------------------------
            FOOTER
-        ---------------------------------------------------- */
-        .partner-section {
-          margin-top: 14px;
-          text-align: center;
-          z-index: 5;
+        ---------------------------------- */
+        .partner-credits {
+          margin-top: 16px;
+          display: flex;
+          flex-direction: column;
+          align-items: center;
+          gap: 2px;
         }
 
         .partner-label {
-          font-size: 11.5px;
-          color: #7b91a7;
+          font-size: 12px;
+          color: #7793b1;
         }
 
-        .partner-name {
-          font-size: 13.5px;
+        .partner-val {
+          font-size: 14px;
           font-weight: 700;
-          color: #0d3862;
+          color: #0a345c;
         }
 
         .page-footer {
-          margin-top: 22px;
+          margin-top: 28px;
           text-align: center;
-          z-index: 5;
         }
 
-        .developer-info {
+        .dev-ar {
           margin: 0;
-          font-size: 13px;
-          color: #7890a8;
+          font-size: 13.5px;
+          color: #7793b1;
           font-weight: 600;
         }
 
-        .copyright-info {
+        .dev-en {
           margin: 2px 0 0 0;
-          font-size: 12.5px;
-          color: #7890a8;
+          font-size: 13px;
+          color: #7793b1;
           font-weight: 600;
           direction: ltr;
         }
