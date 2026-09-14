@@ -38,9 +38,6 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-  // ==============================
-  // LOAD PARTNER
-  // ==============================
   useEffect(() => {
     fetch('/partner.json')
       .then((res) => res.json())
@@ -54,12 +51,8 @@ export default function Login() {
       });
   }, []);
 
-  // ==============================
-  // SECRET TEACHER PORTAL
-  // ==============================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-
     if (params.get('teacher') === '1') {
       setView('teacher');
     }
@@ -77,9 +70,6 @@ export default function Login() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
-  // ==============================
-  // SECRET LOGO CLICKS
-  // ==============================
   const handleLogoClick = () => {
     const newCount = secretClicks + 1;
     setSecretClicks(newCount);
@@ -97,9 +87,6 @@ export default function Login() {
     }, 2000);
   };
 
-  // ==============================
-  // RESET FORM
-  // ==============================
   const resetForm = () => {
     setStudentId('');
     setFullName('');
@@ -118,9 +105,6 @@ export default function Login() {
     setView('signup');
   };
 
-  // ==============================
-  // STUDENT LOGIN
-  // ==============================
   const handleStudentLogin = async (e) => {
     e.preventDefault();
     const id = studentId.trim();
@@ -181,9 +165,6 @@ export default function Login() {
     }
   };
 
-  // ==============================
-  // STUDENT SIGNUP
-  // ==============================
   const handleStudentSignup = async (e) => {
     e.preventDefault();
     const id = studentId.trim();
@@ -279,9 +260,6 @@ export default function Login() {
     }
   };
 
-  // ==============================
-  // TEACHER LOGIN
-  // ==============================
   const handleTeacherLogin = async (e) => {
     e.preventDefault();
     const username = teacherUsername.trim();
@@ -331,38 +309,38 @@ export default function Login() {
 
   return (
     <div className="login-page">
-      {/* خلفية الصفحة */}
-      <div className="bg-decorations">
-        <div className="bg-circle circle-top-left" />
-        <div className="bg-circle circle-center-right" />
-      </div>
-
-      {/* المنطقة العلوية (صورة المعلم والأسماء) */}
+      {/* القسم العلوي بالكامل */}
       <div className="hero-section">
-        {/* معلومات المعلم الجانبية */}
+        {/* الدوائر المتداخلة خلف المعلم */}
+        <div className="rings-container">
+          <div className="ring ring-inner" />
+          <div className="ring ring-middle" />
+          <div className="ring ring-outer" />
+        </div>
+
+        {/* النصوص اليسرى: اسم المعلم والتخصص */}
         <div className="teacher-info">
           <h1 className="teacher-name">أ. محمد أبو سليمان</h1>
-          {/* مسحة الفرشاة الزرقاء تحت الاسم */}
-          <div className="brush-stroke-wrapper">
-            <svg viewBox="0 0 140 12" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M3 8C35 2 105 1 137 7C110 4 50 4 3 8Z" fill="#3182ce" />
+          <div className="brush-stroke">
+            <svg viewBox="0 0 120 10" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M2 7C30 2 90 2 118 6C95 3 45 3 2 7Z" fill="#1b6edc" />
             </svg>
           </div>
           <span className="teacher-subtitle">English Teacher</span>
         </div>
 
-        {/* المقولة بخط اليد جهة اليمين */}
-        <div className="motto-box">
+        {/* النص الأيمن: العبارة الإنجليزية المائلة بخط اليد */}
+        <div className="motto-container">
           <p>Better</p>
           <p>English</p>
           <p>Bigger</p>
           <p>Dreams</p>
-          <svg className="motto-underline" viewBox="0 0 60 8" fill="none">
-            <path d="M2 5 C 20 2, 40 2, 58 5" stroke="#90cdf4" strokeWidth="2.5" strokeLinecap="round" />
+          <svg className="motto-line" viewBox="0 0 50 6" fill="none">
+            <path d="M2 4 C 18 1, 35 1, 48 4" stroke="#a0ccf7" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </div>
 
-        {/* صورة المعلم */}
+        {/* صورة المعلم المكبّرة (Zoomed In) */}
         <div className="teacher-photo-wrapper" onClick={handleLogoClick}>
           <img
             src={TEACHER_IMAGE}
@@ -375,9 +353,6 @@ export default function Login() {
 
       {/* كارت تسجيل الدخول الأبيض */}
       <main className="auth-card">
-        {/* ===================================================
-            STUDENT LOGIN
-        ==================================================== */}
         {view === 'student' && (
           <>
             <h2 className="card-title">تسجيل الدخول</h2>
@@ -391,7 +366,7 @@ export default function Login() {
                     viewBox="0 0 24 24"
                     fill="none"
                     stroke="currentColor"
-                    strokeWidth="2"
+                    strokeWidth="2.2"
                     strokeLinecap="round"
                     strokeLinejoin="round"
                   >
@@ -425,9 +400,6 @@ export default function Login() {
           </>
         )}
 
-        {/* ===================================================
-            SIGN UP
-        ==================================================== */}
         {view === 'signup' && (
           <>
             <div className="card-header">
@@ -510,9 +482,6 @@ export default function Login() {
           </>
         )}
 
-        {/* ===================================================
-            TEACHER LOGIN
-        ==================================================== */}
         {view === 'teacher' && (
           <>
             <div className="card-header">
@@ -563,7 +532,6 @@ export default function Login() {
         )}
       </main>
 
-      {/* الشريك التجاري إن وجد */}
       {(partnerLabel || partnerName) && (
         <div className="partner-section">
           {partnerLabel && <div className="partner-label">{partnerLabel}</div>}
@@ -571,7 +539,7 @@ export default function Login() {
         </div>
       )}
 
-      {/* ذيل الصفحة السفلي المطابق للصورة */}
+      {/* ذيل الصفحة */}
       <footer className="page-footer">
         <p className="developer-info">تطوير : نادر محمد أبو سليمان</p>
         <p className="copyright-info">© Developed by Nader Sulieman</p>
@@ -579,7 +547,7 @@ export default function Login() {
       </footer>
 
       {/* =====================================================
-          CSS STYLES
+          CSS RULES
       ====================================================== */}
       <style>{`
         @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;500;600;700;800;900&family=Caveat:wght@600;700&display=swap');
@@ -600,84 +568,97 @@ export default function Login() {
           font-family: 'Cairo', sans-serif;
           min-height: 100vh;
           width: 100%;
-          max-width: 480px;
+          max-width: 440px;
           margin: 0 auto;
-          background: linear-gradient(180deg, #edf5fd 0%, #e1effc 40%, #d5e7f8 100%);
+          background: linear-gradient(180deg, #edf4fc 0%, #e2eefb 45%, #d8e8fa 100%);
           position: relative;
           display: flex;
           flex-direction: column;
           align-items: center;
           justify-content: space-between;
-          padding-bottom: 24px;
-          overflow-x: hidden;
-          box-shadow: 0 0 50px rgba(0,0,0,0.05);
-        }
-
-        /* الخلفية والدوائر الشفافة */
-        .bg-decorations {
-          position: absolute;
-          inset: 0;
-          pointer-events: none;
+          padding-bottom: 20px;
           overflow: hidden;
-          z-index: 0;
         }
 
-        .bg-circle {
-          position: absolute;
-          border-radius: 50%;
-          background: radial-gradient(circle, rgba(255,255,255,0.7) 0%, rgba(255,255,255,0) 70%);
-        }
-
-        .circle-top-left {
-          width: 320px;
-          height: 320px;
-          top: -100px;
-          left: -120px;
-        }
-
-        .circle-center-right {
-          width: 280px;
-          height: 280px;
-          top: 180px;
-          right: -100px;
-        }
-
-        /* القسم العلوي (الصورة والأسماء) */
+        /* ----------------------------------------------------
+           HERO SECTION & TEACHER ZOOM
+        ---------------------------------------------------- */
         .hero-section {
           position: relative;
           width: 100%;
-          height: 340px;
+          height: 360px;
+          overflow: hidden;
+        }
+
+        /* الدوائر البيضاء المتداخلة خلف المعلم */
+        .rings-container {
+          position: absolute;
+          top: 10px;
+          right: -70px;
+          width: 420px;
+          height: 420px;
+          pointer-events: none;
           z-index: 1;
+        }
+
+        .ring {
+          position: absolute;
+          border-radius: 50%;
+          border: 1px solid rgba(255, 255, 255, 0.45);
+        }
+
+        .ring-inner {
+          top: 90px;
+          right: 90px;
+          width: 240px;
+          height: 240px;
+          background: rgba(255, 255, 255, 0.35);
+          box-shadow: 0 0 40px rgba(255, 255, 255, 0.5);
+        }
+
+        .ring-middle {
+          top: 50px;
+          right: 50px;
+          width: 320px;
+          height: 320px;
+          background: rgba(255, 255, 255, 0.2);
+        }
+
+        .ring-outer {
+          top: 0;
+          right: 0;
+          width: 420px;
+          height: 420px;
+          background: rgba(255, 255, 255, 0.1);
         }
 
         /* معلومات المعلم الجانبية اليسرى */
         .teacher-info {
           position: absolute;
-          top: 75px;
-          left: 24px;
+          top: 72px;
+          left: 20px;
+          z-index: 4;
           display: flex;
           flex-direction: column;
           align-items: flex-start;
-          z-index: 3;
         }
 
         .teacher-name {
           margin: 0;
-          font-size: 23px;
+          font-size: 22px;
           font-weight: 800;
-          color: #0d3660;
-          letter-spacing: -0.3px;
-          line-height: 1.1;
+          color: #0d3862;
+          white-space: nowrap;
         }
 
-        .brush-stroke-wrapper {
-          width: 125px;
-          height: 10px;
-          margin-top: 3px;
-          margin-bottom: 8px;
+        .brush-stroke {
+          width: 110px;
+          height: 8px;
+          margin-top: 2px;
+          margin-bottom: 6px;
         }
 
-        .brush-stroke-wrapper svg {
+        .brush-stroke svg {
           width: 100%;
           height: 100%;
         }
@@ -685,66 +666,69 @@ export default function Login() {
         .teacher-subtitle {
           font-family: Arial, sans-serif;
           font-size: 13px;
-          color: #7b9ebc;
-          letter-spacing: 2px;
+          color: #7296bc;
+          letter-spacing: 1.5px;
           font-weight: 500;
         }
 
-        /* المقولة المائلة بخط اليد */
-        .motto-box {
+        /* المقولة المائلة بخط اليد جهة اليمين العلوي */
+        .motto-container {
           position: absolute;
-          top: 32px;
-          right: 28px;
-          text-align: left;
+          top: 30px;
+          right: 22px;
+          z-index: 2;
           direction: ltr;
+          text-align: left;
           transform: rotate(-10deg);
           font-family: 'Caveat', cursive;
-          color: rgba(135, 175, 212, 0.55);
+          color: rgba(140, 180, 218, 0.5);
           font-size: 21px;
           line-height: 1.05;
           font-weight: 700;
-          z-index: 2;
         }
 
-        .motto-box p {
+        .motto-container p {
           margin: 0;
         }
 
-        .motto-underline {
-          width: 50px;
+        .motto-line {
+          width: 45px;
           height: 6px;
           margin-top: 2px;
         }
 
-        /* صورة المعلم */
+        /* حاوية الصورة المكبّرة (Zoom & Position) */
         .teacher-photo-wrapper {
           position: absolute;
-          top: 15px;
-          right: 5px;
-          width: 290px;
-          height: 340px;
-          z-index: 2;
+          top: -10px;
+          right: -30px;
+          width: 320px;
+          height: 380px;
+          z-index: 3;
           cursor: pointer;
         }
 
         .teacher-photo {
           width: 100%;
           height: 100%;
-          object-fit: contain;
-          object-position: bottom right;
-          filter: drop-shadow(0 10px 15px rgba(0,0,0,0.03));
+          object-fit: cover;
+          object-position: top center;
+          transform: scale(1.15); /* إعطاء الزوم المطلوب */
+          transform-origin: top right;
         }
 
-        /* كارت تسجيل الدخول */
+        /* ----------------------------------------------------
+           CARD FORM & BUTTONS
+        ---------------------------------------------------- */
         .auth-card {
           position: relative;
           z-index: 10;
-          width: calc(100% - 40px);
-          margin-top: -30px;
+          width: calc(100% - 36px);
+          margin-top: -35px;
           background: #ffffff;
-          border-radius: 28px;
-          padding: 32px 24px;
-          box-shadow: 0 12px 35px rgba(22, 60, 100, 0.08);
+          border-radius: 26px;
+          padding: 28px 22px;
+          box-shadow: 0 10px 30px rgba(18, 52, 88, 0.07);
           display: flex;
           flex-direction: column;
           align-items: center;
@@ -752,40 +736,39 @@ export default function Login() {
 
         .card-header {
           text-align: center;
-          margin-bottom: 20px;
+          margin-bottom: 18px;
           width: 100%;
         }
 
         .card-title {
-          margin: 0 0 20px 0;
-          font-size: 24px;
+          margin: 0 0 18px 0;
+          font-size: 23px;
           font-weight: 800;
-          color: #0f3c68;
+          color: #0d3862;
           text-align: center;
         }
 
         .card-subtitle {
-          margin: 6px 0 0 0;
+          margin: 4px 0 0 0;
           font-size: 13px;
           color: #7b91a7;
-          font-weight: 500;
         }
 
         .auth-form {
           width: 100%;
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 16px;
         }
 
         .signup-form {
-          gap: 14px;
+          gap: 12px;
         }
 
         .input-group {
           display: flex;
           flex-direction: column;
-          gap: 8px;
+          gap: 6px;
           width: 100%;
         }
 
@@ -797,9 +780,9 @@ export default function Login() {
         }
 
         .input-label {
-          font-size: 15px;
+          font-size: 14.5px;
           font-weight: 700;
-          color: #123e6b;
+          color: #0d3862;
         }
 
         .label-icon {
@@ -810,12 +793,12 @@ export default function Login() {
 
         .auth-input {
           width: 100%;
-          height: 52px;
+          height: 50px;
           padding: 0 16px;
-          background-color: #f3f6f9;
-          border: 1px solid #e2e8f0;
-          border-radius: 14px;
-          font-size: 15px;
+          background-color: #f4f7fb;
+          border: 1px solid #e1e8f0;
+          border-radius: 13px;
+          font-size: 14.5px;
           color: #1a202c;
           outline: none;
           transition: all 0.2s ease;
@@ -823,14 +806,14 @@ export default function Login() {
         }
 
         .auth-input::placeholder {
-          color: #a0aec0;
-          font-size: 14px;
+          color: #9ab0c7;
+          font-size: 13.5px;
         }
 
         .auth-input:focus {
           background-color: #ffffff;
           border-color: #2b77e5;
-          box-shadow: 0 0 0 3px rgba(43, 119, 229, 0.12);
+          box-shadow: 0 0 0 3px rgba(43, 119, 229, 0.1);
         }
 
         .select-input {
@@ -839,27 +822,22 @@ export default function Login() {
 
         .submit-btn {
           width: 100%;
-          height: 54px;
-          margin-top: 6px;
-          background: #2575fc;
-          background: linear-gradient(135deg, #2b77e5 0%, #1e62cf 100%);
+          height: 52px;
+          margin-top: 4px;
+          background: linear-gradient(135deg, #2b76df 0%, #1f64cc 100%);
           border: none;
-          border-radius: 14px;
+          border-radius: 13px;
           color: #ffffff;
-          font-size: 17px;
+          font-size: 16.5px;
           font-weight: 800;
           cursor: pointer;
-          box-shadow: 0 8px 20px rgba(43, 119, 229, 0.3);
+          box-shadow: 0 7px 18px rgba(35, 107, 212, 0.28);
           transition: all 0.2s ease;
         }
 
         .submit-btn:hover:not(:disabled) {
           transform: translateY(-1px);
-          box-shadow: 0 10px 22px rgba(43, 119, 229, 0.38);
-        }
-
-        .submit-btn:active:not(:disabled) {
-          transform: translateY(0);
+          box-shadow: 0 9px 20px rgba(35, 107, 212, 0.35);
         }
 
         .submit-btn:disabled {
@@ -868,12 +846,12 @@ export default function Login() {
         }
 
         .toggle-view {
-          margin-top: 22px;
+          margin-top: 20px;
           display: flex;
           align-items: center;
           justify-content: center;
           gap: 6px;
-          font-size: 14px;
+          font-size: 13.5px;
         }
 
         .toggle-muted {
@@ -896,41 +874,42 @@ export default function Login() {
           text-decoration: underline;
         }
 
-        /* الشريك */
+        /* ----------------------------------------------------
+           FOOTER
+        ---------------------------------------------------- */
         .partner-section {
-          margin-top: 16px;
+          margin-top: 14px;
           text-align: center;
           z-index: 5;
         }
 
         .partner-label {
-          font-size: 12px;
+          font-size: 11.5px;
           color: #7b91a7;
         }
 
         .partner-name {
-          font-size: 14px;
+          font-size: 13.5px;
           font-weight: 700;
-          color: #123e6b;
+          color: #0d3862;
         }
 
-        /* ذيل الصفحة السفلي المطابق للصورة */
         .page-footer {
-          margin-top: 28px;
+          margin-top: 22px;
           text-align: center;
           z-index: 5;
         }
 
         .developer-info {
           margin: 0;
-          font-size: 13.5px;
+          font-size: 13px;
           color: #7890a8;
           font-weight: 600;
         }
 
         .copyright-info {
-          margin: 3px 0 0 0;
-          font-size: 13px;
+          margin: 2px 0 0 0;
+          font-size: 12.5px;
           color: #7890a8;
           font-weight: 600;
           direction: ltr;
