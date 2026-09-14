@@ -416,21 +416,20 @@ export default function Login() {
 
         </div>
 
-        {/* صورة المعلم */}
-        <div
-          className="teacher-image-wrapper"
-          onClick={handleLogoClick}
-          title="English Teacher"
-        >
-          <div className="number-shape">1</div>
-
-          <img
-            src="/teacher.png"
-            alt="أ. محمد أبو سليمان"
-            className="teacher-image"
-            draggable={false}
-          />
-        </div>
+        <img
+  src={TEACHER_IMAGE}
+  alt="أ. محمد أبو سليمان"
+  className="teacher-image"
+  draggable={false}
+  onError={(e) => {
+    console.error('❌ فشل تحميل الصورة:', TEACHER_IMAGE);
+    console.error('تأكد أن الملف موجود في: public/teacher.png');
+    e.target.style.display = 'none';
+  }}
+  onLoad={() => {
+    console.log('✅ تم تحميل الصورة بنجاح');
+  }}
+/>
 
       </section>
 
