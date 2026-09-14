@@ -415,17 +415,11 @@ export default function Login() {
             </div>
 
             <span className="teacher-sub">
-              English Teacher
+              منصة الاختبارات الالكترونية
             </span>
           </div>
 
-          {/* Handwritten motto */}
-          <div className="motto-handwritten">
-            <div>Better</div>
-            <div>English</div>
-            <div>Bigger</div>
-            <div>Dreams</div>
-          </div>
+          
 
           {/* Teacher image */}
           <div
@@ -1177,11 +1171,11 @@ export default function Login() {
         }
 
         .brush-underline {
-          width: 96px;
-          height: 16px;
-          margin-right: 29px;
-          margin-top: 24px;
-          margin-bottom: -7px;
+width: 96px;
+    height: 16px;
+    margin-right: 62px;
+    margin-top: 24px;
+    margin-bottom: -7px;
         }
 
         .brush-underline svg {
@@ -1192,17 +1186,17 @@ export default function Login() {
         }
 
         .teacher-sub {
-          font-family: Arial, Helvetica, sans-serif;
-
-          font-size: 13.5px;
-
-          color: #6a8cb2;
-
-          letter-spacing: 2px;
-
-          font-weight: 600;
+    font-size: 12.5px;
+    color: #6a8cb2;
+    letter-spacing: 2px;
+    font-weight: 600;
     margin-top: -34px;
-          direction: ltr;
+    margin-right: 13px;
+    /* margin-left: -24px; */
+    font-family: 'Cairo';
+    font-weight: 800;
+    direction: ltr;
+
         }
 
         /* ==========================================
