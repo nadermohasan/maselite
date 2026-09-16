@@ -8,14 +8,21 @@ import ConfirmDialog from "./ConfirmDialog";
 import {
   Users, CheckCircle, Search, TrendingUp, RefreshCw,
   Award, ChevronDown, Download, Trash2, Play,
-  FlaskConical, BookOpen, Pencil, Check, X
+  FlaskConical, BookOpen, Pencil, Check, X, Layers, FolderPlus
 } from "lucide-react";
 import * as XLSX from "xlsx";
 
 // ============ اللغة الإنجليزية فقط ============
 const ENGLISH_SUBJECT_KEYWORD = "إنجليزية";
 
-// المواد المراد عرضها في الكشوف (إنجليزية فقط)
+// ============ المدارس / المراكز التعليمية ============
+const SCHOOLS = [
+  "مدرسة بيارق الخاصة",
+  "مركز النخبة التعليمي",
+  "مركز ماكس للتعليم والتدريب",
+];
+
+// المواد المراد عرضها في الكشوف
 const getBranchSubjects = (allSubjects) =>
   allSubjects.filter(subj => subj.includes(ENGLISH_SUBJECT_KEYWORD));
 
@@ -111,14 +118,12 @@ const generateAttemptQuestions = async (attemptId, studentBranch) => {
 };
 
 // ============================================================
-// 🎯 المنطق الجديد للحزم:
-// إذا وُجدت حزمة بها محاولة نشطة واحدة على الأقل → استخدمها
-// إذا لم توجد → أنشئ حزمة جديدة
+// البحث عن حزمة مفتوحة
 // ============================================================
-const getOrCreateBatchId = async () => {
+const findOpenBatch = async () => {
   const { data: openBatch, error } = await supabase
     .from("attempts")
-    .select("batch_id, created_at")
+    .select("batch_id, created_at, student_id")
     .eq("status", "active")
     .not("batch_id", "is", null)
     .order("created_at", { ascending: false })
@@ -127,13 +132,28 @@ const getOrCreateBatchId = async () => {
 
   if (error) {
     console.error("خطأ في البحث عن الحزمة المفتوحة:", error);
+    return null;
   }
 
-  if (openBatch?.batch_id) {
-    return { batchId: openBatch.batch_id, isNew: false };
-  }
+  if (!openBatch?.batch_id) return null;
 
-  return { batchId: crypto.randomUUID(), isNew: true };
+  const { count: studentsCount } = await supabase
+    .from("attempts")
+    .select("student_id", { count: "exact", head: true })
+    .eq("batch_id", openBatch.batch_id);
+
+  const { count: activeCount } = await supabase
+    .from("attempts")
+    .select("id", { count: "exact", head: true })
+    .eq("batch_id", openBatch.batch_id)
+    .eq("status", "active");
+
+  return {
+    batchId: openBatch.batch_id,
+    createdAt: openBatch.created_at,
+    studentsCount: studentsCount || 0,
+    activeCount: activeCount || 0,
+  };
 };
 
 export default function AdminDashboard() {
@@ -148,6 +168,14 @@ export default function AdminDashboard() {
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false, batchId: null, message: ""
   });
+
+  // نافذة اختيار الحزمة
+  const [batchChoiceDialog, setBatchChoiceDialog] = useState({
+    isOpen: false,
+    openBatchInfo: null,
+    pendingAction: null,
+  });
+
   const [batches, setBatches] = useState([]);
   const [selectedBatch, setSelectedBatch] = useState(null);
   const [scientificResults, setScientificResults] = useState({ subjects: [], students: [] });
@@ -170,10 +198,14 @@ export default function AdminDashboard() {
   const [editAreaValue, setEditAreaValue] = useState("");
   const [areaSaveLoadingId, setAreaSaveLoadingId] = useState(null);
 
+  // ⭐ تحرير المدرسة
+  const [editingSchoolId, setEditingSchoolId] = useState(null);
+  const [editSchoolValue, setEditSchoolValue] = useState("");
+  const [schoolSaveLoadingId, setSchoolSaveLoadingId] = useState(null);
+
   const [studentAreaFilter, setStudentAreaFilter] = useState("");
   const [authChecked, setAuthChecked] = useState(false);
 
-  // 🔒 قفل التفعيل (Ref لمنع السباق)
   const activationLockRef = useRef(false);
 
   const navigate = useNavigate();
@@ -264,6 +296,38 @@ export default function AdminDashboard() {
       setEditingAreaId(null); setEditAreaValue("");
     }
     setAreaSaveLoadingId(null);
+  };
+
+  // ⭐ تحرير المدرسة
+  const handleSchoolEditClick = (user) => {
+    setEditingSchoolId(user.id);
+    setEditSchoolValue(user.school || "");
+  };
+  const handleSchoolCancel = () => {
+    setEditingSchoolId(null);
+    setEditSchoolValue("");
+    setSchoolSaveLoadingId(null);
+  };
+  const handleSchoolSave = async (userId) => {
+    if (!editSchoolValue) {
+      toast.error("الرجاء اختيار المدرسة / المركز");
+      return;
+    }
+    setSchoolSaveLoadingId(userId);
+    const { error } = await supabase
+      .from("profiles")
+      .update({ school: editSchoolValue })
+      .eq("id", userId);
+
+    if (error) {
+      toast.error("فشل حفظ المدرسة: " + error.message);
+    } else {
+      setUsers(prev => prev.map(u => u.id === userId ? { ...u, school: editSchoolValue } : u));
+      toast.success("تم تحديث المدرسة بنجاح");
+      setEditingSchoolId(null);
+      setEditSchoolValue("");
+    }
+    setSchoolSaveLoadingId(null);
   };
 
   // ===== جلب الحزم =====
@@ -373,7 +437,6 @@ export default function AdminDashboard() {
         return;
       }
 
-      // فلترة إنجليزية فقط
       const englishResults = resultsData.filter(r =>
         r.subjects?.name?.includes(ENGLISH_SUBJECT_KEYWORD)
       );
@@ -547,34 +610,20 @@ export default function AdminDashboard() {
   };
 
   // ============================================================
-  // 🎯 تفعيل محاولة لطالب واحد
+  // منطق التفعيل
   // ============================================================
-  const handleActivateAttempt = async (studentId) => {
-    if (activationLockRef.current) {
-      toast.loading("جاري معالجة طلب سابق...", { duration: 1500 });
-      return;
-    }
-
-    activationLockRef.current = true;
-    setProcessingId(studentId);
-
+  const performSingleActivation = async (studentId, batchId) => {
     try {
-      // 1. جلب فرع الطالب
       const { data: studentProfile } = await supabase
         .from("profiles").select("branch").eq("id", studentId).single();
       const studentBranch = studentProfile?.branch?.trim() || null;
 
-      // 2. تحديد الحزمة (قبل إنهاء المحاولات القديمة!)
-      const { batchId, isNew } = await getOrCreateBatchId();
-
-      // 3. إنهاء أي محاولة نشطة قديمة لهذا الطالب
       await supabase
         .from("attempts")
         .update({ status: "completed" })
         .eq("student_id", studentId)
         .eq("status", "active");
 
-      // 4. إنشاء محاولة جديدة
       const { data: newAttempt, error: insertError } = await supabase
         .from("attempts")
         .insert([{ student_id: studentId, status: "active", batch_id: batchId }])
@@ -582,48 +631,16 @@ export default function AdminDashboard() {
 
       if (insertError) throw insertError;
 
-      // 5. توليد الأسئلة
       await generateAttemptQuestions(newAttempt.id, studentBranch);
-
-      toast.success(isNew ? "تم تفعيل المحاولة في حزمة جديدة!" : "تم تفعيل المحاولة في الحزمة الحالية!");
-
-      await fetchStats();
-      await fetchActiveAttempts();
-      await fetchBatches();
-    } catch (e) {
-      console.error("خطأ في تفعيل المحاولة:", e);
-      toast.error("خطأ: " + e.message);
-    } finally {
-      setProcessingId(null);
-      activationLockRef.current = false;
+      return { success: true };
+    } catch (err) {
+      return { success: false, error: err.message };
     }
   };
 
-  // ============================================================
-  // 🎯 تفعيل المحاولة لجميع الطلاب المعروضين
-  // ============================================================
-  const handleActivateAll = async () => {
-    if (activationLockRef.current) {
-      toast.loading("جاري معالجة طلب سابق...", { duration: 1500 });
-      return;
-    }
-
-    const studentsToActivate = filteredUsers.filter(u => !activeAttemptsMap[u.id]);
-    if (studentsToActivate.length === 0) {
-      toast("لا يوجد طلاب بحاجة إلى تفعيل (وفقاً للفلاتر الحالية)", { icon: "ℹ️" });
-      return;
-    }
-
-    activationLockRef.current = true;
-    setActivatingAll(true);
-    const loadingToast = toast.loading(`جاري تفعيل ${studentsToActivate.length} طالب...`);
-
+  const performBulkActivation = async (students, batchId) => {
     try {
-      // 1. تحديد الحزمة
-      const { batchId, isNew } = await getOrCreateBatchId();
-
-      // 2. إنهاء المحاولات القديمة للجميع
-      const studentIds = studentsToActivate.map(s => s.id);
+      const studentIds = students.map(s => s.id);
       const { error: updateError } = await supabase
         .from("attempts")
         .update({ status: "completed" })
@@ -632,9 +649,8 @@ export default function AdminDashboard() {
 
       if (updateError) throw new Error("فشل في إنهاء المحاولات القديمة");
 
-      // 3. تفعيل كل طالب بشكل متوازٍ
       const results = await Promise.all(
-        studentsToActivate.map(async (student) => {
+        students.map(async (student) => {
           try {
             const { data: studentProfile } = await supabase
               .from("profiles").select("branch").eq("id", student.id).single();
@@ -655,6 +671,91 @@ export default function AdminDashboard() {
         })
       );
 
+      return results;
+    } catch (err) {
+      throw err;
+    }
+  };
+
+  const handleActivateAttempt = async (studentId) => {
+    if (activationLockRef.current) {
+      toast.loading("جاري معالجة طلب سابق...", { duration: 1500 });
+      return;
+    }
+
+    const openBatch = await findOpenBatch();
+
+    if (openBatch) {
+      setBatchChoiceDialog({
+        isOpen: true,
+        openBatchInfo: openBatch,
+        pendingAction: { type: 'single', studentId },
+      });
+      return;
+    }
+
+    const newBatchId = crypto.randomUUID();
+    await executeSingleActivation(studentId, newBatchId, true);
+  };
+
+  const executeSingleActivation = async (studentId, batchId, isNew) => {
+    activationLockRef.current = true;
+    setProcessingId(studentId);
+
+    try {
+      const result = await performSingleActivation(studentId, batchId);
+      if (!result.success) throw new Error(result.error);
+
+      toast.success(isNew ? "تم تفعيل المحاولة في حزمة جديدة! ✅" : "تم ضم الطالب للحزمة الحالية! ✅");
+
+      await fetchStats();
+      await fetchActiveAttempts();
+      await fetchBatches();
+    } catch (e) {
+      console.error("خطأ في تفعيل المحاولة:", e);
+      toast.error("خطأ: " + e.message);
+    } finally {
+      setProcessingId(null);
+      activationLockRef.current = false;
+    }
+  };
+
+  const handleActivateAll = async () => {
+    if (activationLockRef.current) {
+      toast.loading("جاري معالجة طلب سابق...", { duration: 1500 });
+      return;
+    }
+
+    const studentsToActivate = filteredUsers.filter(u => !activeAttemptsMap[u.id]);
+    if (studentsToActivate.length === 0) {
+      toast("لا يوجد طلاب بحاجة إلى تفعيل (وفقاً للفلاتر الحالية)", { icon: "ℹ️" });
+      return;
+    }
+
+    const openBatch = await findOpenBatch();
+
+    if (openBatch) {
+      setBatchChoiceDialog({
+        isOpen: true,
+        openBatchInfo: openBatch,
+        pendingAction: { type: 'all', students: studentsToActivate },
+      });
+      return;
+    }
+
+    const newBatchId = crypto.randomUUID();
+    await executeBulkActivation(studentsToActivate, newBatchId, true);
+  };
+
+  const executeBulkActivation = async (students, batchId, isNew) => {
+    activationLockRef.current = true;
+    setActivatingAll(true);
+
+    const loadingToast = toast.loading(`جاري تفعيل ${students.length} طالب...`);
+
+    try {
+      const results = await performBulkActivation(students, batchId);
+
       const successCount = results.filter(r => r.success).length;
       const failedCount = results.filter(r => !r.success).length;
 
@@ -666,7 +767,7 @@ export default function AdminDashboard() {
       if (successCount > 0) {
         let message = `تم تفعيل ${successCount} طالب بنجاح!`;
         if (failedCount > 0) message += ` (فشل ${failedCount})`;
-        message += isNew ? " - حزمة جديدة" : " - نفس الحزمة الحالية";
+        message += isNew ? " - حزمة جديدة ✅" : " - ضُمّوا للحزمة الحالية ✅";
         toast.success(message, { duration: 4000 });
       } else {
         toast.error("❌ فشل تفعيل جميع الطلاب");
@@ -681,6 +782,35 @@ export default function AdminDashboard() {
     }
   };
 
+  const handleBatchChoiceExisting = async () => {
+    const { pendingAction, openBatchInfo } = batchChoiceDialog;
+    setBatchChoiceDialog({ isOpen: false, openBatchInfo: null, pendingAction: null });
+
+    if (pendingAction.type === 'single') {
+      await executeSingleActivation(pendingAction.studentId, openBatchInfo.batchId, false);
+    } else if (pendingAction.type === 'all') {
+      await executeBulkActivation(pendingAction.students, openBatchInfo.batchId, false);
+    }
+  };
+
+  const handleBatchChoiceNew = async () => {
+    const { pendingAction } = batchChoiceDialog;
+    setBatchChoiceDialog({ isOpen: false, openBatchInfo: null, pendingAction: null });
+
+    const newBatchId = crypto.randomUUID();
+
+    if (pendingAction.type === 'single') {
+      await executeSingleActivation(pendingAction.studentId, newBatchId, true);
+    } else if (pendingAction.type === 'all') {
+      await executeBulkActivation(pendingAction.students, newBatchId, true);
+    }
+  };
+
+  const handleBatchChoiceCancel = () => {
+    setBatchChoiceDialog({ isOpen: false, openBatchInfo: null, pendingAction: null });
+  };
+
+  // ===== الفلاتر =====
   const filteredUsers = users.filter((u) => {
     const matchesSearch = u.name?.includes(searchTerm) || u.username?.includes(searchTerm);
     const matchesArea = !studentAreaFilter || u.area_code === studentAreaFilter;
@@ -804,6 +934,7 @@ export default function AdminDashboard() {
                   <tr>
                     <th>الاسم</th>
                     <th>الفرع</th>
+                    <th>المدرسة / المركز</th>
                     <th>المنطقة</th>
                     <th>رقم الجوال</th>
                     <th className="text-center">الإجراءات</th>
@@ -824,6 +955,47 @@ export default function AdminDashboard() {
                             {user.branch || "—"}
                           </span>
                         </td>
+
+                        {/* ⭐ المدرسة / المركز */}
+                        <td>
+                          {editingSchoolId === user.id ? (
+                            <div className="phone-edit-row">
+                              <select
+                                value={editSchoolValue}
+                                onChange={(e) => setEditSchoolValue(e.target.value)}
+                                className="phone-input"
+                              >
+                                <option value="">اختر المدرسة</option>
+                                {SCHOOLS.map((s) => (
+                                  <option key={s} value={s}>{s}</option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => handleSchoolSave(user.id)}
+                                disabled={schoolSaveLoadingId === user.id}
+                                className="icon-btn save"
+                                title="حفظ"
+                              >
+                                {schoolSaveLoadingId === user.id ? <span className="spinner-small"></span> : <Check size={16} />}
+                              </button>
+                              <button onClick={handleSchoolCancel} className="icon-btn cancel" title="إلغاء">
+                                <X size={16} />
+                              </button>
+                            </div>
+                          ) : (
+                            <div className="phone-display-row">
+                              <span>{user.school || "—"}</span>
+                              <button
+                                onClick={() => handleSchoolEditClick(user)}
+                                className="icon-btn edit"
+                                title="تعديل"
+                              >
+                                <Pencil size={14} />
+                              </button>
+                            </div>
+                          )}
+                        </td>
+
                         <td>
                           {editingAreaId === user.id ? (
                             <div className="phone-edit-row">
@@ -851,6 +1023,7 @@ export default function AdminDashboard() {
                             </div>
                           )}
                         </td>
+
                         <td>
                           {editingPhoneId === user.id ? (
                             <div className="phone-edit-row">
@@ -874,6 +1047,7 @@ export default function AdminDashboard() {
                             </div>
                           )}
                         </td>
+
                         <td className="text-center">
                           {hasActiveAttempt ? (
                             <button className="btn-attempt active" disabled>✔ محاولة مفعلة</button>
@@ -1099,6 +1273,77 @@ export default function AdminDashboard() {
         </div>
       </main>
 
+      {/* نافذة اختيار الحزمة */}
+      {batchChoiceDialog.isOpen && (
+        <div className="modal-overlay" onClick={handleBatchChoiceCancel}>
+          <div className="batch-choice-modal" onClick={(e) => e.stopPropagation()}>
+
+            <div className="batch-choice-header">
+              <div className="batch-choice-icon-wrapper">
+                <Layers size={28} />
+              </div>
+              <h2 className="batch-choice-title">يوجد حزمة مفتوحة حالياً</h2>
+              <p className="batch-choice-subtitle">
+                كيف تريد تفعيل المحاولة الجديدة؟
+              </p>
+            </div>
+
+            <div className="batch-info-card">
+              <div className="batch-info-row">
+                <span className="batch-info-label">عدد الطلاب في الحزمة:</span>
+                <span className="batch-info-value">{batchChoiceDialog.openBatchInfo?.studentsCount} طالب</span>
+              </div>
+              <div className="batch-info-row">
+                <span className="batch-info-label">المحاولات النشطة حالياً:</span>
+                <span className="batch-info-value active">
+                  {batchChoiceDialog.openBatchInfo?.activeCount} محاولة
+                </span>
+              </div>
+              <div className="batch-info-row">
+                <span className="batch-info-label">تاريخ الإنشاء:</span>
+                <span className="batch-info-value">
+                  {batchChoiceDialog.openBatchInfo?.createdAt
+                    ? new Date(batchChoiceDialog.openBatchInfo.createdAt).toLocaleDateString("ar-EG")
+                    : "—"}
+                </span>
+              </div>
+            </div>
+
+            <div className="batch-choice-options">
+
+              <button className="batch-choice-btn existing" onClick={handleBatchChoiceExisting}>
+                <div className="choice-icon blue">
+                  <Layers size={24} />
+                </div>
+                <div className="choice-content">
+                  <span className="choice-title">ضم للحزمة الحالية</span>
+                  <span className="choice-desc">
+                    إضافة الطالب/الطلاب إلى نفس الحزمة المفتوحة
+                  </span>
+                </div>
+              </button>
+
+              <button className="batch-choice-btn new" onClick={handleBatchChoiceNew}>
+                <div className="choice-icon green">
+                  <FolderPlus size={24} />
+                </div>
+                <div className="choice-content">
+                  <span className="choice-title">فتح حزمة جديدة</span>
+                  <span className="choice-desc">
+                    إنشاء حزمة منفصلة بمحاولات مستقلة
+                  </span>
+                </div>
+              </button>
+
+            </div>
+
+            <button className="batch-choice-cancel" onClick={handleBatchChoiceCancel}>
+              إلغاء
+            </button>
+          </div>
+        </div>
+      )}
+
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
         title="تأكيد حذف الحزمة"
@@ -1158,7 +1403,7 @@ export default function AdminDashboard() {
         .subject-badge { padding: 4px 10px; border-radius: 6px; font-size: 0.85rem; font-weight: 600; }
         .phone-display-row { display: flex; align-items: center; gap: 8px; justify-content: center; }
         .phone-edit-row { display: flex; align-items: center; gap: 6px; justify-content: center; }
-        .phone-input { padding: 6px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; width: 140px; text-align: center; }
+        .phone-input { padding: 6px 8px; border-radius: 6px; border: 1px solid #cbd5e1; font-family: inherit; width: 160px; text-align: center; }
         .icon-btn { background: none; border: none; cursor: pointer; padding: 4px; border-radius: 6px; display: flex; align-items: center; justify-content: center; transition: 0.2s; }
         .icon-btn.save { background: #10b981; color: white; }
         .icon-btn.cancel { background: #ef4444; color: white; }
@@ -1217,6 +1462,82 @@ export default function AdminDashboard() {
         .empty-state { padding: 40px 20px; text-align: center; color: #64748b; }
         .empty-icon { font-size: 3rem; margin-bottom: 10px; }
         .empty-state h3 { color: #1e293b; margin-bottom: 4px; }
+
+        /* نافذة اختيار الحزمة */
+        .modal-overlay {
+          position: fixed; inset: 0;
+          background: rgba(15, 23, 42, 0.55);
+          backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px);
+          display: flex; align-items: center; justify-content: center;
+          z-index: 9999; padding: 20px;
+          animation: fadeIn 0.2s ease-out;
+        }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        .batch-choice-modal {
+          background: #ffffff; border-radius: 28px;
+          width: 100%; max-width: 480px;
+          padding: 32px 28px 24px;
+          box-shadow: 0 25px 60px rgba(15, 23, 42, 0.25);
+          animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+          direction: rtl;
+        }
+        @keyframes slideUp {
+          from { opacity: 0; transform: translateY(30px) scale(0.95); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        .batch-choice-header { text-align: center; margin-bottom: 22px; }
+        .batch-choice-icon-wrapper {
+          width: 64px; height: 64px; border-radius: 20px;
+          background: linear-gradient(135deg, #dbeafe, #bfdbfe);
+          color: #1d4ed8;
+          display: flex; align-items: center; justify-content: center;
+          margin: 0 auto 16px;
+          box-shadow: 0 8px 20px rgba(59, 130, 246, 0.2);
+        }
+        .batch-choice-title { font-size: 1.35rem; font-weight: 800; color: #0f172a; margin: 0 0 6px; letter-spacing: -0.3px; }
+        .batch-choice-subtitle { font-size: 0.9rem; color: #64748b; margin: 0; font-weight: 500; }
+        .batch-info-card {
+          background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 16px;
+          padding: 16px 20px; margin-bottom: 22px;
+          display: flex; flex-direction: column; gap: 10px;
+        }
+        .batch-info-row { display: flex; justify-content: space-between; align-items: center; font-size: 0.88rem; }
+        .batch-info-label { color: #64748b; font-weight: 500; }
+        .batch-info-value { color: #1e293b; font-weight: 800; font-size: 0.95rem; }
+        .batch-info-value.active { color: #16a34a; }
+        .batch-choice-options { display: flex; flex-direction: column; gap: 12px; margin-bottom: 18px; }
+        .batch-choice-btn {
+          display: flex; align-items: center; gap: 16px;
+          padding: 16px 18px;
+          border: 2px solid #e2e8f0;
+          background: #ffffff; border-radius: 16px;
+          cursor: pointer; text-align: right; font-family: inherit;
+          transition: all 0.2s ease;
+        }
+        .batch-choice-btn:hover { transform: translateY(-2px); box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08); }
+        .batch-choice-btn.existing:hover { border-color: #3b82f6; background: #f0f9ff; }
+        .batch-choice-btn.new:hover { border-color: #10b981; background: #f0fdf4; }
+        .choice-icon { width: 48px; height: 48px; border-radius: 14px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .choice-icon.blue { background: #dbeafe; color: #1d4ed8; }
+        .choice-icon.green { background: #d1fae5; color: #059669; }
+        .choice-content { display: flex; flex-direction: column; gap: 3px; flex: 1; }
+        .choice-title { font-size: 1rem; font-weight: 800; color: #0f172a; line-height: 1.3; }
+        .choice-desc { font-size: 0.82rem; color: #64748b; font-weight: 500; line-height: 1.5; }
+        .batch-choice-cancel {
+          width: 100%; padding: 12px; background: transparent; border: none;
+          color: #64748b; font-family: inherit; font-size: 0.9rem; font-weight: 700;
+          cursor: pointer; border-radius: 12px; transition: all 0.2s ease;
+        }
+        .batch-choice-cancel:hover { background: #f1f5f9; color: #334155; }
+
+        @media (max-width: 480px) {
+          .batch-choice-modal { padding: 24px 20px 18px; border-radius: 24px; }
+          .batch-choice-title { font-size: 1.15rem; }
+          .batch-choice-btn { padding: 14px 14px; gap: 12px; }
+          .choice-icon { width: 42px; height: 42px; }
+          .choice-title { font-size: 0.95rem; }
+          .choice-desc { font-size: 0.78rem; }
+        }
       `}</style>
     </div>
   );
