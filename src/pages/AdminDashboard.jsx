@@ -26,7 +26,7 @@ const SCHOOLS = [
 const getBranchSubjects = (allSubjects) =>
   allSubjects.filter(subj => subj.includes(ENGLISH_SUBJECT_KEYWORD));
 
-// خريطة رموز المناطق
+// ⭐ خريطة المناطق (كما كانت في الأصل - تل الهوى، دير البلح، إلخ)
 const AREA_MAP = {
   tlh: "تل الهوى",
   drb: "دير البلح",
@@ -198,12 +198,15 @@ export default function AdminDashboard() {
   const [editAreaValue, setEditAreaValue] = useState("");
   const [areaSaveLoadingId, setAreaSaveLoadingId] = useState(null);
 
-  // ⭐ تحرير المدرسة
+  // تحرير المدرسة
   const [editingSchoolId, setEditingSchoolId] = useState(null);
   const [editSchoolValue, setEditSchoolValue] = useState("");
   const [schoolSaveLoadingId, setSchoolSaveLoadingId] = useState(null);
 
+  // ⭐ الفلاتر
   const [studentAreaFilter, setStudentAreaFilter] = useState("");
+  const [studentSchoolFilter, setStudentSchoolFilter] = useState(""); // ⭐ جديد
+
   const [authChecked, setAuthChecked] = useState(false);
 
   const activationLockRef = useRef(false);
@@ -810,11 +813,12 @@ export default function AdminDashboard() {
     setBatchChoiceDialog({ isOpen: false, openBatchInfo: null, pendingAction: null });
   };
 
-  // ===== الفلاتر =====
+  // ===== الفلاتر ⭐ معدّلة =====
   const filteredUsers = users.filter((u) => {
     const matchesSearch = u.name?.includes(searchTerm) || u.username?.includes(searchTerm);
     const matchesArea = !studentAreaFilter || u.area_code === studentAreaFilter;
-    return matchesSearch && matchesArea;
+    const matchesSchool = !studentSchoolFilter || u.school === studentSchoolFilter;
+    return matchesSearch && matchesArea && matchesSchool;
   });
 
   const todayNewStudents = users.filter((u) => {
@@ -898,11 +902,15 @@ export default function AdminDashboard() {
               onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
           </div>
 
-          <div className="filter-input-wrapper" style={{ maxWidth: "200px" }}>
-            <select value={studentAreaFilter} onChange={(e) => setStudentAreaFilter(e.target.value)}>
-              <option value="">جميع المناطق</option>
-              {Object.entries(AREA_MAP).map(([code, name]) => (
-                <option key={code} value={code}>{name}</option>
+          {/* ⭐ فلتر المدرسة / المركز */}
+          <div className="filter-input-wrapper" style={{ maxWidth: "220px" }}>
+            <select
+              value={studentSchoolFilter}
+              onChange={(e) => setStudentSchoolFilter(e.target.value)}
+            >
+              <option value="">جميع المراكز / المدارس</option>
+              {SCHOOLS.map((name) => (
+                <option key={name} value={name}>{name}</option>
               ))}
             </select>
             <ChevronDown size={16} className="filter-select-icon" />
@@ -1374,8 +1382,8 @@ export default function AdminDashboard() {
         .stat-content { display: flex; flex-direction: column; align-items: center; flex: 1; text-align: center; }
         .stat-label { font-size: 0.9rem; font-weight: 600; color: #64748b; margin-bottom: 4px; }
         .stat-number { font-size: 2rem; font-weight: 800; color: #1e293b; line-height: 1; }
-        .actions-row { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; }
-        .search-wrapper { flex: 1; position: relative; }
+        .actions-row { display: flex; align-items: center; gap: 16px; margin-bottom: 32px; flex-wrap: wrap; }
+        .search-wrapper { flex: 1; min-width: 240px; position: relative; }
         .search-icon { position: absolute; right: 18px; top: 50%; transform: translateY(-50%); color: #94a3b8; }
         .search-input { width: 100%; padding: 16px 52px 16px 20px; border: 1px solid #e2e8f0; border-radius: 60px; font-family: inherit; font-size: 1rem; background: white; box-shadow: 0 4px 10px rgba(0,0,0,0.02); transition: all 0.2s; }
         .search-input:focus { outline: none; border-color: #3b82f6; box-shadow: 0 0 0 4px rgba(59,130,246,0.1); }
