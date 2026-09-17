@@ -26,14 +26,6 @@ const SCHOOLS = [
 const getBranchSubjects = (allSubjects) =>
   allSubjects.filter(subj => subj.includes(ENGLISH_SUBJECT_KEYWORD));
 
-// ⭐ خريطة المناطق (كما كانت في الأصل - تل الهوى، دير البلح، إلخ)
-const AREA_MAP = {
-  tlh: "تل الهوى",
-  drb: "دير البلح",
-  nsr: "النصر",
-  nth: "الشمال",
-};
-
 // ============================================================
 // توليد أسئلة المحاولة (اللغة الإنجليزية فقط)
 // ============================================================
@@ -118,7 +110,7 @@ const generateAttemptQuestions = async (attemptId, studentBranch) => {
 };
 
 // ============================================================
-// البحث عن حزمة مفتوحة
+// البحث عن جلسة اختبار مفتوحة (كشف مفتوح)
 // ============================================================
 const findOpenBatch = async () => {
   const { data: openBatch, error } = await supabase
@@ -131,7 +123,7 @@ const findOpenBatch = async () => {
     .maybeSingle();
 
   if (error) {
-    console.error("خطأ في البحث عن الحزمة المفتوحة:", error);
+    console.error("خطأ في البحث عن الجلسة المفتوحة:", error);
     return null;
   }
 
@@ -163,13 +155,16 @@ export default function AdminDashboard() {
   const [processingId, setProcessingId] = useState(null);
   const [activatingAll, setActivatingAll] = useState(false);
   const [adminProfile, setAdminProfile] = useState(null);
-  const [stats, setStats] = useState({ totalStudents: 0, activeAttempts: 0 });
+  const [stats, setStats] = useState({
+    totalStudents: 0,
+    activeStudents: 0, // ⭐ طلاب دخلوا الامتحان
+  });
   const [activeAttemptsMap, setActiveAttemptsMap] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false, batchId: null, message: ""
   });
 
-  // نافذة اختيار الحزمة
+  // نافذة اختيار جلسة الاختبار
   const [batchChoiceDialog, setBatchChoiceDialog] = useState({
     isOpen: false,
     openBatchInfo: null,
@@ -184,7 +179,7 @@ export default function AdminDashboard() {
   const [showResults, setShowResults] = useState(false);
   const [studentFilter, setStudentFilter] = useState("");
   const [subjectFilter, setSubjectFilter] = useState("");
-  const [areaFilter, setAreaFilter] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState(""); // ⭐ بدلاً من areaFilter
   const [deletingBatch, setDeletingBatch] = useState(null);
   const [selectedBranchView, setSelectedBranchView] = useState(null);
 
@@ -193,19 +188,13 @@ export default function AdminDashboard() {
   const [editPhoneValue, setEditPhoneValue] = useState("");
   const [phoneSaveLoadingId, setPhoneSaveLoadingId] = useState(null);
 
-  // تحرير المنطقة
-  const [editingAreaId, setEditingAreaId] = useState(null);
-  const [editAreaValue, setEditAreaValue] = useState("");
-  const [areaSaveLoadingId, setAreaSaveLoadingId] = useState(null);
-
   // تحرير المدرسة
   const [editingSchoolId, setEditingSchoolId] = useState(null);
   const [editSchoolValue, setEditSchoolValue] = useState("");
   const [schoolSaveLoadingId, setSchoolSaveLoadingId] = useState(null);
 
-  // ⭐ الفلاتر
-  const [studentAreaFilter, setStudentAreaFilter] = useState("");
-  const [studentSchoolFilter, setStudentSchoolFilter] = useState(""); // ⭐ جديد
+  // ⭐ فلتر المدرسة في قائمة الطلاب
+  const [studentSchoolFilter, setStudentSchoolFilter] = useState("");
 
   const [authChecked, setAuthChecked] = useState(false);
 
@@ -224,17 +213,24 @@ export default function AdminDashboard() {
     return null;
   }, []);
 
+  // ⭐ تعديل الإحصائيات: عدد الطلاب الذين دخلوا الامتحان
   const fetchStats = useCallback(async () => {
-    try {
-      const { count: totalStudents } = await supabase
-        .from("profiles").select("*", { count: "exact", head: true }).eq("role", "student");
+  try {
+    const { count: totalStudents } = await supabase
+      .from("profiles").select("*", { count: "exact", head: true }).eq("role", "student");
 
-      const { count: activeAttempts } = await supabase
-        .from("attempts").select("*", { count: "exact", head: true }).eq("status", "active");
-
-      setStats({ totalStudents: totalStudents || 0, activeAttempts: activeAttempts || 0 });
-    } catch (error) { console.error(error); }
-  }, []);
+    // ⭐ عداد الطلاب الذين دخلوا الامتحان فعلاً
+    const { count: activeStudents } = await supabase
+      .from("attempts")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+      .not("started_at", "is", null);  
+    setStats({
+      totalStudents: totalStudents || 0,
+      activeStudents: activeStudents || 0,
+    });
+  } catch (error) { console.error(error); }
+}, []);
 
   const fetchActiveAttempts = useCallback(async () => {
     const { data, error } = await supabase.from("attempts")
@@ -280,27 +276,6 @@ export default function AdminDashboard() {
     setPhoneSaveLoadingId(null);
   };
 
-  // ===== تحرير المنطقة =====
-  const handleAreaEditClick = (user) => {
-    setEditingAreaId(user.id); setEditAreaValue(user.area_code || "");
-  };
-  const handleAreaCancel = () => {
-    setEditingAreaId(null); setEditAreaValue(""); setAreaSaveLoadingId(null);
-  };
-  const handleAreaSave = async (userId) => {
-    const newArea = editAreaValue;
-    if (!newArea) { toast.error("الرجاء اختيار منطقة"); return; }
-    setAreaSaveLoadingId(userId);
-    const { error } = await supabase.from("profiles").update({ area_code: newArea }).eq("id", userId);
-    if (error) toast.error("فشل حفظ المنطقة: " + error.message);
-    else {
-      setUsers(prev => prev.map(u => u.id === userId ? { ...u, area_code: newArea } : u));
-      toast.success("تم تحديث المنطقة بنجاح");
-      setEditingAreaId(null); setEditAreaValue("");
-    }
-    setAreaSaveLoadingId(null);
-  };
-
   // ⭐ تحرير المدرسة
   const handleSchoolEditClick = (user) => {
     setEditingSchoolId(user.id);
@@ -333,7 +308,7 @@ export default function AdminDashboard() {
     setSchoolSaveLoadingId(null);
   };
 
-  // ===== جلب الحزم =====
+  // ===== جلب الجلسات (كشوف النتائج) =====
   const fetchBatches = useCallback(async () => {
     setResultsLoading(true);
     try {
@@ -405,22 +380,23 @@ export default function AdminDashboard() {
       setBatches(batchesArray);
     } catch (error) {
       console.error("Error fetching batches:", error);
-      toast.error("فشل جلب الحزم");
+      toast.error("فشل جلب كشوف النتائج");
     } finally { setResultsLoading(false); }
   }, []);
 
-  // ===== جلب نتائج الحزمة =====
+  // ===== جلب نتائج الجلسة =====
   const fetchBatchResults = useCallback(async (batchId, selectedBranch = null) => {
     setResultsLoading(true);
     setSelectedBranchView(selectedBranch);
     try {
+      // ⭐ select school بدلاً من area_code
       const { data: attempts, error: attemptsError } = await supabase
         .from("attempts")
-        .select(`id, student_id, profiles!inner (name, branch, area_code)`)
+        .select(`id, student_id, profiles!inner (name, branch, school)`)
         .eq("batch_id", batchId);
 
       if (attemptsError) throw attemptsError;
-      if (!attempts?.length) throw new Error("لا توجد محاولات في هذه الحزمة");
+      if (!attempts?.length) throw new Error("لا توجد محاولات في هذا الكشف");
 
       const attemptIds = attempts.map(a => a.id);
 
@@ -432,7 +408,7 @@ export default function AdminDashboard() {
       if (resultsError) throw resultsError;
 
       if (!resultsData || resultsData.length === 0) {
-        toast.info("لا توجد نتائج محفوظة لهذه الحزمة بعد");
+        toast.info("لا توجد نتائج محفوظة لهذا الكشف بعد");
         setScientificResults({ subjects: [], students: [] });
         setLiteraryResults({ subjects: [], students: [] });
         setSelectedBatch(batchId);
@@ -445,7 +421,7 @@ export default function AdminDashboard() {
       );
 
       if (englishResults.length === 0) {
-        toast.info("لا توجد نتائج إنجليزية لهذه الحزمة");
+        toast.info("لا توجد نتائج إنجليزية لهذا الكشف");
         setScientificResults({ subjects: [], students: [] });
         setLiteraryResults({ subjects: [], students: [] });
         setSelectedBatch(batchId);
@@ -474,7 +450,7 @@ export default function AdminDashboard() {
         attemptStudentMap.set(attempt.id, {
           name: attempt.profiles?.name || "غير معروف",
           branch: attempt.profiles?.branch || "",
-          areaCode: attempt.profiles?.area_code || ""
+          school: attempt.profiles?.school || "", // ⭐ school بدلاً من areaCode
         });
       });
 
@@ -501,7 +477,7 @@ export default function AdminDashboard() {
             studentId,
             studentName: studentInfo.name,
             branch: studentInfo.branch,
-            areaCode: studentInfo.areaCode,
+            school: studentInfo.school, // ⭐
             subjects: {}
           });
         }
@@ -520,7 +496,7 @@ export default function AdminDashboard() {
         if (Object.keys(student.subjects).length === 0) return;
         const row = {
           studentName: student.studentName,
-          areaCode: student.areaCode,
+          school: student.school, // ⭐
           subjects: student.subjects
         };
         if (student.branch === "العلمي") scientific.push(row);
@@ -533,7 +509,7 @@ export default function AdminDashboard() {
       setScientificResults({ subjects: getBranchSubjects(subjectsList), students: scientific });
       setLiteraryResults({ subjects: getBranchSubjects(subjectsList), students: literary });
 
-      setStudentFilter(""); setSubjectFilter(""); setAreaFilter("");
+      setStudentFilter(""); setSubjectFilter(""); setSchoolFilter("");
       setSelectedBatch(batchId);
 
       if (selectedBranch === 'scientific' || selectedBranch === 'literary') {
@@ -541,14 +517,14 @@ export default function AdminDashboard() {
       }
     } catch (error) {
       console.error("Error fetching batch results:", error);
-      toast.error("فشل جلب نتائج الحزمة: " + error.message);
+      toast.error("فشل جلب نتائج الكشف: " + error.message);
     } finally { setResultsLoading(false); }
   }, []);
 
   const handleDeleteBatch = (batchId) => {
     setConfirmDialog({
       isOpen: true, batchId,
-      message: "هل أنت متأكد من حذف هذه الحزمة وجميع نتائجها؟ لا يمكن التراجع."
+      message: "هل أنت متأكد من حذف هذا الكشف وجميع نتائجه؟ لا يمكن التراجع."
     });
   };
 
@@ -565,13 +541,13 @@ export default function AdminDashboard() {
         await supabase.from("attempt_questions").delete().in("attempt_id", attemptIds);
         await supabase.from("attempts").delete().in("id", attemptIds);
       }
-      toast.success("تم حذف الحزمة بنجاح");
+      toast.success("تم حذف الكشف بنجاح");
       setBatches(prev => prev.filter(b => b.id !== batchId));
       if (selectedBatch === batchId) {
         setSelectedBatch(null); setSelectedBranchView(null);
       }
     } catch (error) {
-      toast.error("فشل حذف الحزمة: " + error.message);
+      toast.error("فشل حذف الكشف: " + error.message);
     } finally { setDeletingBatch(null); }
   };
 
@@ -589,7 +565,7 @@ export default function AdminDashboard() {
     const filteredStudents = currentStudents.filter(s =>
       s.studentName.includes(studentFilter) &&
       (!subjectFilter || s.subjects[subjectFilter]) &&
-      (!areaFilter || s.areaCode === areaFilter)
+      (!schoolFilter || s.school === schoolFilter) // ⭐ schoolFilter
     );
 
     if (filteredStudents.length === 0) {
@@ -599,9 +575,10 @@ export default function AdminDashboard() {
 
     const branchName = isScientific ? "العلمي" : "الأدبي";
     const wb = XLSX.utils.book_new();
-    const header = ["اسم الطالب", ...filteredSubjects];
+    const header = ["اسم الطالب", "المدرسة / المركز", ...filteredSubjects]; // ⭐
     const dataRows = filteredStudents.map((s, idx) => [
       `${idx + 1}. ${s.studentName}`,
+      s.school || "—", // ⭐
       ...filteredSubjects.map(subj => {
         const subjData = s.subjects[subj];
         return subjData ? `${subjData.score}/${subjData.totalMarks}` : "—";
@@ -650,7 +627,7 @@ export default function AdminDashboard() {
         .in("student_id", studentIds)
         .eq("status", "active");
 
-      if (updateError) throw new Error("فشل في إنهاء المحاولات القديمة");
+      if (updateError) throw new Error("فشل في إنهاء الاختبارات القديمة");
 
       const results = await Promise.all(
         students.map(async (student) => {
@@ -709,13 +686,13 @@ export default function AdminDashboard() {
       const result = await performSingleActivation(studentId, batchId);
       if (!result.success) throw new Error(result.error);
 
-      toast.success(isNew ? "تم تفعيل المحاولة في حزمة جديدة! ✅" : "تم ضم الطالب للحزمة الحالية! ✅");
+      toast.success(isNew ? "تم تفعيل الاختبار في كشف جديد! ✅" : "تم ضم الطالب للكشف الحالي! ✅");
 
       await fetchStats();
       await fetchActiveAttempts();
       await fetchBatches();
     } catch (e) {
-      console.error("خطأ في تفعيل المحاولة:", e);
+      console.error("خطأ في تفعيل الاختبار:", e);
       toast.error("خطأ: " + e.message);
     } finally {
       setProcessingId(null);
@@ -770,7 +747,7 @@ export default function AdminDashboard() {
       if (successCount > 0) {
         let message = `تم تفعيل ${successCount} طالب بنجاح!`;
         if (failedCount > 0) message += ` (فشل ${failedCount})`;
-        message += isNew ? " - حزمة جديدة ✅" : " - ضُمّوا للحزمة الحالية ✅";
+        message += isNew ? " - كشف جديد ✅" : " - ضُمّوا للكشف الحالي ✅";
         toast.success(message, { duration: 4000 });
       } else {
         toast.error("❌ فشل تفعيل جميع الطلاب");
@@ -813,12 +790,11 @@ export default function AdminDashboard() {
     setBatchChoiceDialog({ isOpen: false, openBatchInfo: null, pendingAction: null });
   };
 
-  // ===== الفلاتر ⭐ معدّلة =====
+  // ===== الفلاتر =====
   const filteredUsers = users.filter((u) => {
     const matchesSearch = u.name?.includes(searchTerm) || u.username?.includes(searchTerm);
-    const matchesArea = !studentAreaFilter || u.area_code === studentAreaFilter;
     const matchesSchool = !studentSchoolFilter || u.school === studentSchoolFilter;
-    return matchesSearch && matchesArea && matchesSchool;
+    return matchesSearch && matchesSchool;
   });
 
   const todayNewStudents = users.filter((u) => {
@@ -839,7 +815,7 @@ export default function AdminDashboard() {
   const filteredDisplayStudents = currentDisplayStudents.filter(s =>
     s.studentName.includes(studentFilter) &&
     (!subjectFilter || s.subjects[subjectFilter]) &&
-    (!areaFilter || s.areaCode === areaFilter)
+    (!schoolFilter || s.school === schoolFilter) // ⭐
   );
 
   useEffect(() => {
@@ -866,11 +842,9 @@ export default function AdminDashboard() {
       <Navbar userName={adminProfile?.name || "مدير النظام"} />
       <main className="dashboard-main">
         <div className="page-header">
-          <div>
-            <h1 className="page-title">إدارة الطلاب - اللغة الإنجليزية</h1>
-          </div>
         </div>
 
+        {/* ===== الإحصائيات ===== */}
         <div className="stats-grid">
           <div className="stat-card">
             <div className="stat-icon-wrapper bg-blue"><Users size={24} /></div>
@@ -882,8 +856,9 @@ export default function AdminDashboard() {
           <div className="stat-card">
             <div className="stat-icon-wrapper bg-green"><CheckCircle size={24} /></div>
             <div className="stat-content">
-              <span className="stat-label">محاولات نشطة</span>
-              <span className="stat-number">{stats.activeAttempts}</span>
+              {/* ⭐ استبدال "محاولات نشطة" بـ "طلاب دخلوا الامتحان" */}
+              <span className="stat-label">طلاب دخلوا الامتحان</span>
+              <span className="stat-number">{stats.activeStudents}</span>
             </div>
           </div>
           <div className="stat-card">
@@ -895,6 +870,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
+        {/* ===== شريط البحث والفلاتر ===== */}
         <div className="actions-row">
           <div className="search-wrapper">
             <Search className="search-icon" size={20} />
@@ -902,8 +878,8 @@ export default function AdminDashboard() {
               onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
           </div>
 
-          {/* ⭐ فلتر المدرسة / المركز */}
-          <div className="filter-input-wrapper" style={{ maxWidth: "220px" }}>
+          {/* ⭐ فلتر المدرسة فقط (تم حذف فلتر المنطقة) */}
+          <div className="filter-input-wrapper" style={{ maxWidth: "240px" }}>
             <select
               value={studentSchoolFilter}
               onChange={(e) => setStudentSchoolFilter(e.target.value)}
@@ -922,7 +898,7 @@ export default function AdminDashboard() {
           </button>
         </div>
 
-        {/* جدول الطلاب */}
+        {/* ===== جدول الطلاب ===== */}
         <div className="table-card">
           <div className="card-header">
             <h2 className="card-title"><Users size={20} className="icon-blue" /> قائمة الطلاب</h2>
@@ -943,7 +919,6 @@ export default function AdminDashboard() {
                     <th>الاسم</th>
                     <th>الفرع</th>
                     <th>المدرسة / المركز</th>
-                    <th>المنطقة</th>
                     <th>رقم الجوال</th>
                     <th className="text-center">الإجراءات</th>
                   </tr>
@@ -964,7 +939,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
 
-                        {/* ⭐ المدرسة / المركز */}
+                        {/* المدرسة / المركز */}
                         <td>
                           {editingSchoolId === user.id ? (
                             <div className="phone-edit-row">
@@ -1004,34 +979,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
 
-                        <td>
-                          {editingAreaId === user.id ? (
-                            <div className="phone-edit-row">
-                              <select value={editAreaValue}
-                                onChange={(e) => setEditAreaValue(e.target.value)} className="phone-input">
-                                <option value="">اختر المنطقة</option>
-                                {Object.entries(AREA_MAP).map(([code, name]) => (
-                                  <option key={code} value={code}>{name}</option>
-                                ))}
-                              </select>
-                              <button onClick={() => handleAreaSave(user.id)}
-                                disabled={areaSaveLoadingId === user.id} className="icon-btn save" title="حفظ">
-                                {areaSaveLoadingId === user.id ? <span className="spinner-small"></span> : <Check size={16} />}
-                              </button>
-                              <button onClick={handleAreaCancel} className="icon-btn cancel" title="إلغاء">
-                                <X size={16} />
-                              </button>
-                            </div>
-                          ) : (
-                            <div className="phone-display-row">
-                              <span>{AREA_MAP[user.area_code] || user.area_code || "—"}</span>
-                              <button onClick={() => handleAreaEditClick(user)} className="icon-btn edit" title="تعديل">
-                                <Pencil size={14} />
-                              </button>
-                            </div>
-                          )}
-                        </td>
-
+                        {/* رقم الجوال */}
                         <td>
                           {editingPhoneId === user.id ? (
                             <div className="phone-edit-row">
@@ -1058,14 +1006,14 @@ export default function AdminDashboard() {
 
                         <td className="text-center">
                           {hasActiveAttempt ? (
-                            <button className="btn-attempt active" disabled>✔ محاولة مفعلة</button>
+                            <button className="btn-attempt active" disabled>✔ الاختبار مفعّل</button>
                           ) : (
                             <button className="btn-attempt"
                               onClick={() => handleActivateAttempt(user.id)}
                               disabled={processingId === user.id || activatingAll || activationLockRef.current}>
                               {processingId === user.id ? (
                                 <><span className="spinner-small"></span>جاري...</>
-                              ) : ("✚ تفعيل محاولة")}
+                              ) : ("✚ تفعيل الاختبار")}
                             </button>
                           )}
                         </td>
@@ -1084,7 +1032,7 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* قسم النتائج */}
+        {/* ===== قسم كشوف النتائج ===== */}
         <div className="table-card results-section-card">
           <div className="card-header"
             onClick={() => {
@@ -1094,10 +1042,10 @@ export default function AdminDashboard() {
               setSelectedBranchView(null);
             }}>
             <h2 className="card-title">
-              <Award size={20} className="icon-blue" /> كشوف نتائج الطلاب (إنجليزي)
+              <Award size={20} className="icon-blue" /> كشوف نتائج الطلاب
             </h2>
             <div className="card-header-actions">
-              <span className="badge-count">{batches.length} حزمة</span>
+              <span className="badge-count">{batches.length} كشف</span>
               <ChevronDown size={20} className={`chevron ${showResults ? 'open' : ''}`} />
             </div>
           </div>
@@ -1110,11 +1058,11 @@ export default function AdminDashboard() {
                   <div className="results-toolbar">
                     <button className="btn-secondary"
                       onClick={() => { setSelectedBatch(null); setSelectedBranchView(null); }}>
-                      ↪ العودة للحزم
+                      ↪ العودة للكشوف
                     </button>
                     <button className="btn-danger" onClick={() => handleDeleteBatch(selectedBatch)}
                       disabled={deletingBatch === selectedBatch}>
-                      <Trash2 size={16} /> حذف الحزمة
+                      <Trash2 size={16} /> حذف الكشف
                     </button>
                   </div>
 
@@ -1151,11 +1099,12 @@ export default function AdminDashboard() {
                           </select>
                           <ChevronDown size={16} className="filter-select-icon" />
                         </div>
+                        {/* ⭐ فلتر المدرسة بدلاً من المنطقة */}
                         <div className="filter-input-wrapper">
-                          <select value={areaFilter} onChange={(e) => setAreaFilter(e.target.value)}>
-                            <option value="">جميع المناطق</option>
-                            {Object.entries(AREA_MAP).map(([code, name]) => (
-                              <option key={code} value={code}>{name}</option>
+                          <select value={schoolFilter} onChange={(e) => setSchoolFilter(e.target.value)}>
+                            <option value="">جميع المراكز / المدارس</option>
+                            {SCHOOLS.map((name) => (
+                              <option key={name} value={name}>{name}</option>
                             ))}
                           </select>
                           <ChevronDown size={16} className="filter-select-icon" />
@@ -1182,6 +1131,7 @@ export default function AdminDashboard() {
                               <tr>
                                 <th className="sticky-col-right">#</th>
                                 <th className="sticky-col-right-name">اسم الطالب</th>
+                                <th>المدرسة / المركز</th>
                                 {filteredDisplaySubjects.map(subj => (<th key={subj}>{subj}</th>))}
                               </tr>
                             </thead>
@@ -1190,6 +1140,7 @@ export default function AdminDashboard() {
                                 <tr key={idx}>
                                   <td className="sticky-col-right">{idx + 1}</td>
                                   <td className="sticky-col-right-name">{student.studentName}</td>
+                                  <td>{student.school || "—"}</td>
                                   {filteredDisplaySubjects.map(subj => {
                                     const subjData = student.subjects[subj];
                                     return (
@@ -1218,7 +1169,7 @@ export default function AdminDashboard() {
                   <table className="modern-table">
                     <thead>
                       <tr>
-                        <th>الحزمة</th>
+                        <th>الكشف</th>
                         <th>عدد الطلاب</th>
                         <th>الحالة</th>
                         <th>تاريخ الإنشاء</th>
@@ -1230,16 +1181,16 @@ export default function AdminDashboard() {
                         const isOpen = batch.activeCount > 0;
                         return (
                           <tr key={batch.id}>
-                            <td>حزمة {batches.length - idx}</td>
+                            <td>كشف {batches.length - idx}</td>
                             <td>{batch.studentCount} طالب</td>
                             <td>
                               {isOpen ? (
                                 <span className="badge-count" style={{ background: '#dcfce7', color: '#16a34a' }}>
-                                  مفتوحة ({batch.activeCount} نشط)
+                                  مفتوح ({batch.activeCount} نشط)
                                 </span>
                               ) : (
                                 <span className="badge-count" style={{ background: '#f1f5f9', color: '#64748b' }}>
-                                  مكتملة
+                                  مكتمل
                                 </span>
                               )}
                             </td>
@@ -1259,7 +1210,7 @@ export default function AdminDashboard() {
                                 <button className="btn-view-branch delete-batch-btn"
                                   onClick={() => handleDeleteBatch(batch.id)}
                                   disabled={deletingBatch === batch.id}
-                                  title="حذف الحزمة">
+                                  title="حذف الكشف">
                                   <Trash2 size={16} />
                                 </button>
                               </div>
@@ -1272,8 +1223,8 @@ export default function AdminDashboard() {
                 </div>
               ) : (
                 <div className="empty-state">
-                  <h3>لا توجد حزم</h3>
-                  <p>لم يتم إنشاء أي حزم بعد</p>
+                  <h3>لا توجد كشوف</h3>
+                  <p>لم يتم إنشاء أي كشوف بعد</p>
                 </div>
               )}
             </div>
@@ -1281,7 +1232,7 @@ export default function AdminDashboard() {
         </div>
       </main>
 
-      {/* نافذة اختيار الحزمة */}
+      {/* ===== نافذة اختيار الكشف ===== */}
       {batchChoiceDialog.isOpen && (
         <div className="modal-overlay" onClick={handleBatchChoiceCancel}>
           <div className="batch-choice-modal" onClick={(e) => e.stopPropagation()}>
@@ -1290,21 +1241,21 @@ export default function AdminDashboard() {
               <div className="batch-choice-icon-wrapper">
                 <Layers size={28} />
               </div>
-              <h2 className="batch-choice-title">يوجد حزمة مفتوحة حالياً</h2>
+              <h2 className="batch-choice-title">يوجد كشف مفتوح حالياً</h2>
               <p className="batch-choice-subtitle">
-                كيف تريد تفعيل المحاولة الجديدة؟
+                كيف تريد تفعيل الاختبار الجديد؟
               </p>
             </div>
 
             <div className="batch-info-card">
               <div className="batch-info-row">
-                <span className="batch-info-label">عدد الطلاب في الحزمة:</span>
+                <span className="batch-info-label">عدد الطلاب في الكشف:</span>
                 <span className="batch-info-value">{batchChoiceDialog.openBatchInfo?.studentsCount} طالب</span>
               </div>
               <div className="batch-info-row">
-                <span className="batch-info-label">المحاولات النشطة حالياً:</span>
+                <span className="batch-info-label">الاختبارات النشطة حالياً:</span>
                 <span className="batch-info-value active">
-                  {batchChoiceDialog.openBatchInfo?.activeCount} محاولة
+                  {batchChoiceDialog.openBatchInfo?.activeCount} اختبار
                 </span>
               </div>
               <div className="batch-info-row">
@@ -1324,9 +1275,9 @@ export default function AdminDashboard() {
                   <Layers size={24} />
                 </div>
                 <div className="choice-content">
-                  <span className="choice-title">ضم للحزمة الحالية</span>
+                  <span className="choice-title">ضم للكشف الحالي</span>
                   <span className="choice-desc">
-                    إضافة الطالب/الطلاب إلى نفس الحزمة المفتوحة
+                    إضافة الطالب/الطلاب إلى نفس الكشف المفتوح
                   </span>
                 </div>
               </button>
@@ -1336,9 +1287,9 @@ export default function AdminDashboard() {
                   <FolderPlus size={24} />
                 </div>
                 <div className="choice-content">
-                  <span className="choice-title">فتح حزمة جديدة</span>
+                  <span className="choice-title">فتح كشف جديد</span>
                   <span className="choice-desc">
-                    إنشاء حزمة منفصلة بمحاولات مستقلة
+                    إنشاء كشف منفصل بمحاولات مستقلة
                   </span>
                 </div>
               </button>
@@ -1354,7 +1305,7 @@ export default function AdminDashboard() {
 
       <ConfirmDialog
         isOpen={confirmDialog.isOpen}
-        title="تأكيد حذف الحزمة"
+        title="تأكيد حذف الكشف"
         message={confirmDialog.message}
         confirmText="نعم، احذف"
         cancelText="إلغاء"
@@ -1471,7 +1422,7 @@ export default function AdminDashboard() {
         .empty-icon { font-size: 3rem; margin-bottom: 10px; }
         .empty-state h3 { color: #1e293b; margin-bottom: 4px; }
 
-        /* نافذة اختيار الحزمة */
+        /* نافذة اختيار الكشف */
         .modal-overlay {
           position: fixed; inset: 0;
           background: rgba(15, 23, 42, 0.55);
