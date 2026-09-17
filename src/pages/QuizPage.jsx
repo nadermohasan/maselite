@@ -89,9 +89,9 @@ export default function QuizPage() {
 
   useEffect(() => {
     if (subjectName) {
-      document.title = `${subjectName} - مركز النخبة التعليمي`;
+      document.title = `${subjectName} - أ. محمد أبو سليمان`;
     } else {
-      document.title = "اختبار - مركز النخبة التعليمي";
+      document.title = "جاري تحضير الاختبار..";
     }
   }, [subjectName]);
 
@@ -462,11 +462,22 @@ toast.error(
         .limit(1)
         .maybeSingle();
 
-      if (!attemptData) {
-        setError("no_active_attempt");
-        return;
-      }
-      setAttemptId(attemptData.id);
+if (!attemptData) {
+  setError("no_active_attempt");
+  return;
+}
+setAttemptId(attemptData.id);
+
+if (attemptData.status === "active" && !attemptData.started_at) {
+  try {
+    await supabase
+      .from("attempts")
+      .update({ started_at: new Date().toISOString() })
+      .eq("id", attemptData.id);
+  } catch (err) {
+    console.warn("تعذر تسجيل وقت البدء:", err);
+  }
+}
 
       // 2. التحقق من وجود نتيجة سابقة لهذه المادة
       const { data: existingResult } = await supabase
@@ -685,7 +696,7 @@ toast.error(
           </div>
           <div className="center-brand">
             <img
-              src="https://i.imgur.com/ETr3K2d.png"
+              src="https://i.imgur.com/U5iofms.png"
               alt="Logo"
               className="quiz-logo"
             />
@@ -810,7 +821,7 @@ toast.error(
         </div>
         <div className="center-brand">
           <img
-            src="https://i.imgur.com/ETr3K2d.png"
+            src="https://i.imgur.com/U5iofms.png"
             alt="Logo"
             className="quiz-logo"
           />
@@ -1142,7 +1153,7 @@ toast.error(
           .quiz-header { padding: 12px 20px; }
           .question-card { padding: 24px 20px; border-radius: 24px; }
           .question-text { font-size: 1.2rem; }
-          .quiz-logo { height: 44px; }
+          .quiz-logo { height: 35px; }
           .quiz-nav-controls { gap: 8px; }
           .nav-btn { padding: 10px 14px; font-size: 0.9rem; border-radius: 14px; }
           .q-dots-scroll-container { gap: 8px; padding: 10px 20px; mask-image: none; -webkit-mask-image: none; }
