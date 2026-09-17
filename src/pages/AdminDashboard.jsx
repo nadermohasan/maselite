@@ -22,90 +22,9 @@ const SCHOOLS = [
   "مركز ماكس للتعليم والتدريب",
 ];
 
-// ============ مفاتيح sessionStorage لحفظ حالة الصفحة ============
-const SESSION_KEYS = {
-  showResults: "admin_showResults",
-  selectedBatch: "admin_selectedBatch",
-  selectedBranchView: "admin_selectedBranchView",
-  studentFilter: "admin_studentFilter",
-  subjectFilter: "admin_subjectFilter",
-  schoolFilter: "admin_schoolFilter",
-  searchTerm: "admin_searchTerm",
-  studentSchoolFilter: "admin_studentSchoolFilter",
-};
-
 // المواد المراد عرضها في الكشوف
 const getBranchSubjects = (allSubjects) =>
   allSubjects.filter(subj => subj.includes(ENGLISH_SUBJECT_KEYWORD));
-
-// ============================================================
-// Helper: Toast محايد
-// ============================================================
-const toastInfo = (message) =>
-  toast(message, {
-    icon: "ℹ️",
-    style: {
-      background: "#eff6ff",
-      color: "#1e40af",
-      border: "1px solid #bfdbfe",
-      fontFamily: "Cairo, sans-serif",
-      direction: "rtl",
-      fontWeight: 600,
-    },
-  });
-
-// ============================================================
-// ⭐ شاشة التحميل أثناء التحقق من الجلسة
-// ============================================================
-const AuthLoadingScreen = () => (
-  <div style={{
-    minHeight: '100vh',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    background: 'linear-gradient(180deg, #f4f7fc 0%, #e9f0f9 100%)',
-    direction: 'rtl',
-    fontFamily: 'Cairo, sans-serif',
-  }}>
-    <div style={{ textAlign: 'center' }}>
-      <img
-        src="https://i.imgur.com/U5iofms.png"
-        alt="النخبة"
-        style={{
-          width: '120px',
-          height: 'auto',
-          marginBottom: '24px',
-          filter: 'drop-shadow(0 4px 12px rgba(30, 64, 175, 0.15))',
-        }}
-      />
-
-      <div style={{
-        width: '52px',
-        height: '52px',
-        border: '4px solid #dbeafe',
-        borderTopColor: '#3b82f6',
-        borderRadius: '50%',
-        animation: 'spin 0.9s linear infinite',
-        margin: '0 auto 20px',
-      }} />
-
-      <p style={{
-        color: '#475569',
-        fontWeight: 700,
-        fontSize: '0.95rem',
-        margin: 0,
-      }}>
-        جاري التحقق من الجلسة...
-      </p>
-
-      <style>{`
-        @keyframes spin { 
-          to { transform: rotate(360deg); } 
-        }
-      `}</style>
-    </div>
-  </div>
-);
 
 // ============================================================
 // توليد أسئلة المحاولة (اللغة الإنجليزية فقط)
@@ -191,7 +110,7 @@ const generateAttemptQuestions = async (attemptId, studentBranch) => {
 };
 
 // ============================================================
-// البحث عن كشف مفتوح
+// البحث عن جلسة اختبار مفتوحة (كشف مفتوح)
 // ============================================================
 const findOpenBatch = async () => {
   const { data: openBatch, error } = await supabase
@@ -204,7 +123,7 @@ const findOpenBatch = async () => {
     .maybeSingle();
 
   if (error) {
-    console.error("خطأ في البحث عن الكشف المفتوح:", error);
+    console.error("خطأ في البحث عن الجلسة المفتوحة:", error);
     return null;
   }
 
@@ -232,22 +151,20 @@ const findOpenBatch = async () => {
 export default function AdminDashboard() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
   const [processingId, setProcessingId] = useState(null);
   const [activatingAll, setActivatingAll] = useState(false);
   const [adminProfile, setAdminProfile] = useState(null);
   const [stats, setStats] = useState({
     totalStudents: 0,
-    activeStudents: 0,
+    activeStudents: 0, // ⭐ طلاب دخلوا الامتحان
   });
   const [activeAttemptsMap, setActiveAttemptsMap] = useState({});
   const [confirmDialog, setConfirmDialog] = useState({
     isOpen: false, batchId: null, message: ""
   });
 
-  // ⭐ حالة التحقق: 'checking' | 'authorized' | 'unauthorized'
-  const [authState, setAuthState] = useState('checking');
-
-  // نافذة اختيار الكشف
+  // نافذة اختيار جلسة الاختبار
   const [batchChoiceDialog, setBatchChoiceDialog] = useState({
     isOpen: false,
     openBatchInfo: null,
@@ -255,51 +172,16 @@ export default function AdminDashboard() {
   });
 
   const [batches, setBatches] = useState([]);
+  const [selectedBatch, setSelectedBatch] = useState(null);
   const [scientificResults, setScientificResults] = useState({ subjects: [], students: [] });
   const [literaryResults, setLiteraryResults] = useState({ subjects: [], students: [] });
   const [resultsLoading, setResultsLoading] = useState(false);
+  const [showResults, setShowResults] = useState(false);
+  const [studentFilter, setStudentFilter] = useState("");
+  const [subjectFilter, setSubjectFilter] = useState("");
+  const [schoolFilter, setSchoolFilter] = useState(""); // ⭐ بدلاً من areaFilter
   const [deletingBatch, setDeletingBatch] = useState(null);
-
-  // ⭐ الحالات مع استعادة من sessionStorage
-  const [searchTerm, setSearchTerm] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.searchTerm) || ""; }
-    catch { return ""; }
-  });
-
-  const [studentFilter, setStudentFilter] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.studentFilter) || ""; }
-    catch { return ""; }
-  });
-
-  const [subjectFilter, setSubjectFilter] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.subjectFilter) || ""; }
-    catch { return ""; }
-  });
-
-  const [schoolFilter, setSchoolFilter] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.schoolFilter) || ""; }
-    catch { return ""; }
-  });
-
-  const [studentSchoolFilter, setStudentSchoolFilter] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.studentSchoolFilter) || ""; }
-    catch { return ""; }
-  });
-
-  const [selectedBatch, setSelectedBatch] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.selectedBatch) || null; }
-    catch { return null; }
-  });
-
-  const [showResults, setShowResults] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.showResults) === "true"; }
-    catch { return false; }
-  });
-
-  const [selectedBranchView, setSelectedBranchView] = useState(() => {
-    try { return sessionStorage.getItem(SESSION_KEYS.selectedBranchView) || null; }
-    catch { return null; }
-  });
+  const [selectedBranchView, setSelectedBranchView] = useState(null);
 
   // تحرير رقم الجوال
   const [editingPhoneId, setEditingPhoneId] = useState(null);
@@ -311,169 +193,45 @@ export default function AdminDashboard() {
   const [editSchoolValue, setEditSchoolValue] = useState("");
   const [schoolSaveLoadingId, setSchoolSaveLoadingId] = useState(null);
 
+  // ⭐ فلتر المدرسة في قائمة الطلاب
+  const [studentSchoolFilter, setStudentSchoolFilter] = useState("");
+
   const [authChecked, setAuthChecked] = useState(false);
 
   const activationLockRef = useRef(false);
 
   const navigate = useNavigate();
 
-  // ============================================================
-  // ⭐ مزامنة sessionStorage
-  // ============================================================
-  useEffect(() => {
-    try {
-      if (showResults) sessionStorage.setItem(SESSION_KEYS.showResults, "true");
-      else sessionStorage.removeItem(SESSION_KEYS.showResults);
-    } catch {}
-  }, [showResults]);
+const fetchAdminProfile = useCallback(async () => {
+  const { data: { session } } = await supabase.auth.getSession();
+  const currentUser = session?.user;
+  if (currentUser) {
+    const { data: profile } = await supabase
+      .from("profiles").select("name, role").eq("id", currentUser.id).single();
+    setAdminProfile(profile);
+    return profile;
+  }
+  return null;
+}, []);
 
-  useEffect(() => {
-    try {
-      if (selectedBatch) sessionStorage.setItem(SESSION_KEYS.selectedBatch, selectedBatch);
-      else sessionStorage.removeItem(SESSION_KEYS.selectedBatch);
-    } catch {}
-  }, [selectedBatch]);
-
-  useEffect(() => {
-    try {
-      if (selectedBranchView) sessionStorage.setItem(SESSION_KEYS.selectedBranchView, selectedBranchView);
-      else sessionStorage.removeItem(SESSION_KEYS.selectedBranchView);
-    } catch {}
-  }, [selectedBranchView]);
-
-  useEffect(() => {
-    try {
-      if (searchTerm) sessionStorage.setItem(SESSION_KEYS.searchTerm, searchTerm);
-      else sessionStorage.removeItem(SESSION_KEYS.searchTerm);
-    } catch {}
-  }, [searchTerm]);
-
-  useEffect(() => {
-    try {
-      if (studentFilter) sessionStorage.setItem(SESSION_KEYS.studentFilter, studentFilter);
-      else sessionStorage.removeItem(SESSION_KEYS.studentFilter);
-    } catch {}
-  }, [studentFilter]);
-
-  useEffect(() => {
-    try {
-      if (subjectFilter) sessionStorage.setItem(SESSION_KEYS.subjectFilter, subjectFilter);
-      else sessionStorage.removeItem(SESSION_KEYS.subjectFilter);
-    } catch {}
-  }, [subjectFilter]);
-
-  useEffect(() => {
-    try {
-      if (schoolFilter) sessionStorage.setItem(SESSION_KEYS.schoolFilter, schoolFilter);
-      else sessionStorage.removeItem(SESSION_KEYS.schoolFilter);
-    } catch {}
-  }, [schoolFilter]);
-
-  useEffect(() => {
-    try {
-      if (studentSchoolFilter) sessionStorage.setItem(SESSION_KEYS.studentSchoolFilter, studentSchoolFilter);
-      else sessionStorage.removeItem(SESSION_KEYS.studentSchoolFilter);
-    } catch {}
-  }, [studentSchoolFilter]);
-
-  // ============================================================
-  // ⭐ التحقق من المصادقة — نسخة مُحسَّنة (بدون وميض)
-  // ============================================================
-  useEffect(() => {
-    let isMounted = true;
-    let attempts = 0;
-    const MAX_ATTEMPTS = 6;
-
-    const checkAdmin = async () => {
-      if (!isMounted) return;
-      attempts++;
-
-      try {
-        const { data: { session }, error: sessionError } = 
-          await supabase.auth.getSession();
-
-        if (!isMounted) return;
-
-        if (sessionError || !session) {
-          if (attempts < MAX_ATTEMPTS) {
-            console.log(`🔵 [Auth] Attempt ${attempts}/${MAX_ATTEMPTS}: no session, retrying...`);
-            setTimeout(checkAdmin, 300);
-            return;
-          }
-
-          console.error(`❌ [Auth] No session after ${MAX_ATTEMPTS} attempts`);
-          if (isMounted) setAuthState('unauthorized');
-          return;
-        }
-
-        const user = session.user;
-        if (!user) {
-          if (isMounted) setAuthState('unauthorized');
-          return;
-        }
-
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!isMounted) return;
-
-        if (!profile || profile.role !== 'admin') {
-          console.error("❌ [Auth] User is not admin");
-          await supabase.auth.signOut();
-          if (isMounted) setAuthState('unauthorized');
-          return;
-        }
-
-        console.log("✅ [Auth] Admin verified");
-        setAdminProfile(profile);
-        setAuthChecked(true);
-        setAuthState('authorized');
-      } catch (err) {
-        console.error("Auth check error:", err);
-        if (attempts < MAX_ATTEMPTS && isMounted) {
-          setTimeout(checkAdmin, 300);
-        } else {
-          if (isMounted) setAuthState('unauthorized');
-        }
-      }
-    };
-
-    checkAdmin();
-
-    return () => { isMounted = false; };
-  }, []);
-
-  // ⭐ التوجيه لصفحة الدخول فقط بعد انتهاء المحاولات
-  useEffect(() => {
-    if (authState === 'unauthorized') {
-      toast.error("انتهت الجلسة، يرجى تسجيل الدخول");
-      navigate("/login", { replace: true });
-    }
-  }, [authState, navigate]);
-
-  // ============================================================
-  // الإحصائيات
-  // ============================================================
+  // ⭐ تعديل الإحصائيات: عدد الطلاب الذين دخلوا الامتحان
   const fetchStats = useCallback(async () => {
-    try {
-      const { count: totalStudents } = await supabase
-        .from("profiles").select("*", { count: "exact", head: true }).eq("role", "student");
+  try {
+    const { count: totalStudents } = await supabase
+      .from("profiles").select("*", { count: "exact", head: true }).eq("role", "student");
 
-      const { count: activeStudents } = await supabase
-        .from("attempts")
-        .select("*", { count: "exact", head: true })
-        .eq("status", "active")
-        .not("started_at", "is", null);
-
-      setStats({
-        totalStudents: totalStudents || 0,
-        activeStudents: activeStudents || 0,
-      });
-    } catch (error) { console.error(error); }
-  }, []);
+    // ⭐ عداد الطلاب الذين دخلوا الامتحان فعلاً
+    const { count: activeStudents } = await supabase
+      .from("attempts")
+      .select("*", { count: "exact", head: true })
+      .eq("status", "active")
+      .not("started_at", "is", null);  
+    setStats({
+      totalStudents: totalStudents || 0,
+      activeStudents: activeStudents || 0,
+    });
+  } catch (error) { console.error(error); }
+}, []);
 
   const fetchActiveAttempts = useCallback(async () => {
     const { data, error } = await supabase.from("attempts")
@@ -519,7 +277,7 @@ export default function AdminDashboard() {
     setPhoneSaveLoadingId(null);
   };
 
-  // ===== تحرير المدرسة =====
+  // ⭐ تحرير المدرسة
   const handleSchoolEditClick = (user) => {
     setEditingSchoolId(user.id);
     setEditSchoolValue(user.school || "");
@@ -551,7 +309,7 @@ export default function AdminDashboard() {
     setSchoolSaveLoadingId(null);
   };
 
-  // ===== جلب الكشوف =====
+  // ===== جلب الجلسات (كشوف النتائج) =====
   const fetchBatches = useCallback(async () => {
     setResultsLoading(true);
     try {
@@ -627,11 +385,12 @@ export default function AdminDashboard() {
     } finally { setResultsLoading(false); }
   }, []);
 
-  // ===== جلب نتائج الكشف =====
+  // ===== جلب نتائج الجلسة =====
   const fetchBatchResults = useCallback(async (batchId, selectedBranch = null) => {
     setResultsLoading(true);
     setSelectedBranchView(selectedBranch);
     try {
+      // ⭐ select school بدلاً من area_code
       const { data: attempts, error: attemptsError } = await supabase
         .from("attempts")
         .select(`id, student_id, profiles!inner (name, branch, school)`)
@@ -650,7 +409,7 @@ export default function AdminDashboard() {
       if (resultsError) throw resultsError;
 
       if (!resultsData || resultsData.length === 0) {
-        toastInfo("لا توجد نتائج محفوظة لهذا الكشف بعد");
+        toast.info("لا توجد نتائج محفوظة لهذا الكشف بعد");
         setScientificResults({ subjects: [], students: [] });
         setLiteraryResults({ subjects: [], students: [] });
         setSelectedBatch(batchId);
@@ -663,7 +422,7 @@ export default function AdminDashboard() {
       );
 
       if (englishResults.length === 0) {
-        toastInfo("لا توجد نتائج إنجليزية لهذا الكشف");
+        toast.info("لا توجد نتائج إنجليزية لهذا الكشف");
         setScientificResults({ subjects: [], students: [] });
         setLiteraryResults({ subjects: [], students: [] });
         setSelectedBatch(batchId);
@@ -692,7 +451,7 @@ export default function AdminDashboard() {
         attemptStudentMap.set(attempt.id, {
           name: attempt.profiles?.name || "غير معروف",
           branch: attempt.profiles?.branch || "",
-          school: attempt.profiles?.school || "",
+          school: attempt.profiles?.school || "", // ⭐ school بدلاً من areaCode
         });
       });
 
@@ -719,7 +478,7 @@ export default function AdminDashboard() {
             studentId,
             studentName: studentInfo.name,
             branch: studentInfo.branch,
-            school: studentInfo.school,
+            school: studentInfo.school, // ⭐
             subjects: {}
           });
         }
@@ -738,7 +497,7 @@ export default function AdminDashboard() {
         if (Object.keys(student.subjects).length === 0) return;
         const row = {
           studentName: student.studentName,
-          school: student.school,
+          school: student.school, // ⭐
           subjects: student.subjects
         };
         if (student.branch === "العلمي") scientific.push(row);
@@ -751,6 +510,7 @@ export default function AdminDashboard() {
       setScientificResults({ subjects: getBranchSubjects(subjectsList), students: scientific });
       setLiteraryResults({ subjects: getBranchSubjects(subjectsList), students: literary });
 
+      setStudentFilter(""); setSubjectFilter(""); setSchoolFilter("");
       setSelectedBatch(batchId);
 
       if (selectedBranch === 'scientific' || selectedBranch === 'literary') {
@@ -785,8 +545,7 @@ export default function AdminDashboard() {
       toast.success("تم حذف الكشف بنجاح");
       setBatches(prev => prev.filter(b => b.id !== batchId));
       if (selectedBatch === batchId) {
-        setSelectedBatch(null);
-        setSelectedBranchView(null);
+        setSelectedBatch(null); setSelectedBranchView(null);
       }
     } catch (error) {
       toast.error("فشل حذف الكشف: " + error.message);
@@ -807,7 +566,7 @@ export default function AdminDashboard() {
     const filteredStudents = currentStudents.filter(s =>
       s.studentName.includes(studentFilter) &&
       (!subjectFilter || s.subjects[subjectFilter]) &&
-      (!schoolFilter || s.school === schoolFilter)
+      (!schoolFilter || s.school === schoolFilter) // ⭐ schoolFilter
     );
 
     if (filteredStudents.length === 0) {
@@ -817,10 +576,10 @@ export default function AdminDashboard() {
 
     const branchName = isScientific ? "العلمي" : "الأدبي";
     const wb = XLSX.utils.book_new();
-    const header = ["اسم الطالب", "المدرسة / المركز", ...filteredSubjects];
+    const header = ["اسم الطالب", "المدرسة / المركز", ...filteredSubjects]; // ⭐
     const dataRows = filteredStudents.map((s, idx) => [
       `${idx + 1}. ${s.studentName}`,
-      s.school || "—",
+      s.school || "—", // ⭐
       ...filteredSubjects.map(subj => {
         const subjData = s.subjects[subj];
         return subjData ? `${subjData.score}/${subjData.totalMarks}` : "—";
@@ -1057,48 +816,34 @@ export default function AdminDashboard() {
   const filteredDisplayStudents = currentDisplayStudents.filter(s =>
     s.studentName.includes(studentFilter) &&
     (!subjectFilter || s.subjects[subjectFilter]) &&
-    (!schoolFilter || s.school === schoolFilter)
+    (!schoolFilter || s.school === schoolFilter) // ⭐
   );
 
-  // ============================================================
-  // تحميل البيانات بعد التحقق من الصلاحية + استعادة الحالة
-  // ============================================================
   useEffect(() => {
-    if (authState !== 'authorized') return;
+    const checkAdmin = async () => {
+      const profile = await fetchAdminProfile();
+      if (!profile || profile.role !== 'admin') {
+        toast.error("غير مصرح لك بالدخول");
+        navigate("/login");
+      } else {
+        setAuthChecked(true);
+      }
+    };
+    checkAdmin();
+  }, [fetchAdminProfile, navigate]);
 
-    fetchUsers();
-    fetchStats();
-    fetchActiveAttempts();
-    fetchBatches();
-
-    // ⭐ استعادة النتائج بعد التحديث
-    const savedBatch = sessionStorage.getItem(SESSION_KEYS.selectedBatch);
-    const savedBranch = sessionStorage.getItem(SESSION_KEYS.selectedBranchView);
-
-    if (savedBatch) {
-      const timer = setTimeout(() => {
-        fetchBatchResults(savedBatch, savedBranch || null);
-      }, 400);
-      return () => clearTimeout(timer);
+  useEffect(() => {
+    if (authChecked) {
+      fetchUsers(); fetchStats(); fetchActiveAttempts(); fetchBatches();
     }
-  }, [authState, fetchUsers, fetchStats, fetchActiveAttempts, fetchBatches, fetchBatchResults]);
-
-  // ============================================================
-  // ⭐ شاشة التحميل أثناء التحقق (تمنع وميض صفحة الدخول)
-  // ============================================================
-  if (authState === 'checking' || !authChecked) {
-    return <AuthLoadingScreen />;
-  }
-
-  // إذا وصلنا هنا و authState = 'unauthorized'، التوجيه يعمل تلقائياً
-  if (authState === 'unauthorized') {
-    return <AuthLoadingScreen />;
-  }
+  }, [authChecked, fetchUsers, fetchStats, fetchActiveAttempts, fetchBatches]);
 
   return (
     <div className="dashboard-container">
       <Navbar userName={adminProfile?.name || "مدير النظام"} />
       <main className="dashboard-main">
+        <div className="page-header">
+        </div>
 
         {/* ===== الإحصائيات ===== */}
         <div className="stats-grid">
@@ -1112,6 +857,7 @@ export default function AdminDashboard() {
           <div className="stat-card">
             <div className="stat-icon-wrapper bg-green"><CheckCircle size={24} /></div>
             <div className="stat-content">
+              {/* ⭐ استبدال "محاولات نشطة" بـ "طلاب دخلوا الامتحان" */}
               <span className="stat-label">طلاب دخلوا الامتحان</span>
               <span className="stat-number">{stats.activeStudents}</span>
             </div>
@@ -1133,6 +879,7 @@ export default function AdminDashboard() {
               onChange={(e) => setSearchTerm(e.target.value)} className="search-input" />
           </div>
 
+          {/* ⭐ فلتر المدرسة فقط (تم حذف فلتر المنطقة) */}
           <div className="filter-input-wrapper" style={{ maxWidth: "240px" }}>
             <select
               value={studentSchoolFilter}
@@ -1193,6 +940,7 @@ export default function AdminDashboard() {
                           </span>
                         </td>
 
+                        {/* المدرسة / المركز */}
                         <td>
                           {editingSchoolId === user.id ? (
                             <div className="phone-edit-row">
@@ -1232,6 +980,7 @@ export default function AdminDashboard() {
                           )}
                         </td>
 
+                        {/* رقم الجوال */}
                         <td>
                           {editingPhoneId === user.id ? (
                             <div className="phone-edit-row">
@@ -1290,10 +1039,8 @@ export default function AdminDashboard() {
             onClick={() => {
               if (!showResults && batches.length === 0) fetchBatches();
               setShowResults(!showResults);
-              if (showResults) {
-                setSelectedBatch(null);
-                setSelectedBranchView(null);
-              }
+              setSelectedBatch(null);
+              setSelectedBranchView(null);
             }}>
             <h2 className="card-title">
               <Award size={20} className="icon-blue" /> كشوف نتائج الطلاب
@@ -1353,6 +1100,7 @@ export default function AdminDashboard() {
                           </select>
                           <ChevronDown size={16} className="filter-select-icon" />
                         </div>
+                        {/* ⭐ فلتر المدرسة بدلاً من المنطقة */}
                         <div className="filter-input-wrapper">
                           <select value={schoolFilter} onChange={(e) => setSchoolFilter(e.target.value)}>
                             <option value="">جميع المراكز / المدارس</option>
@@ -1573,7 +1321,7 @@ export default function AdminDashboard() {
         * { box-sizing: border-box; margin: 0; }
         body { font-family: 'Cairo', sans-serif; }
         .dashboard-container { direction: rtl; background: linear-gradient(180deg, #f4f7fc 0%, #e9f0f9 100%); min-height: 100vh; display: flex; flex-direction: column; }
-        .dashboard-main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 24px; }
+        .dashboard-main { flex: 1; width: 100%; max-width: 1280px; margin: 0 auto; padding: 0 24px 32px; }
         .page-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 32px; }
         .page-title { font-size: 2rem; font-weight: 800; color: #0f172a; margin-bottom: 6px; text-align: right; width: 100%; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 20px; margin-bottom: 32px; }
@@ -1675,6 +1423,7 @@ export default function AdminDashboard() {
         .empty-icon { font-size: 3rem; margin-bottom: 10px; }
         .empty-state h3 { color: #1e293b; margin-bottom: 4px; }
 
+        /* نافذة اختيار الكشف */
         .modal-overlay {
           position: fixed; inset: 0;
           background: rgba(15, 23, 42, 0.55);
