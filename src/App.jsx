@@ -20,7 +20,7 @@ const ADMIN_NAME = "أ. محمد أبو سليمان"; // ⬅️ اسم المس
  */
 const StudentRedirect = () => {
   const navigate = useNavigate();
-  const [status, setStatus] = useState("loading");
+  const [status, setStatus] = useState("checking"); // ⭐ بدلاً من "loading"
   const [studentName, setStudentName] = useState("");
   const [studentInfo, setStudentInfo] = useState({ branch: "", school: "" });
 
@@ -112,26 +112,10 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
   };
 
   // ============================================================
-  // شاشة التحميل
+  // ⭐ شاشة التحقق — لا شيء يظهر (خلفية body فقط)
   // ============================================================
-  if (status === "loading") {
-    return (
-      <div className="status-page">
-        <div className="status-bg-blob blob-1"></div>
-        <div className="status-bg-blob blob-2"></div>
-
-        <div className="status-content">
-          <div className="loading-spinner-large">
-            <div className="spinner-ring"></div>
-            <div className="spinner-dot"></div>
-          </div>
-          <h2 className="loading-title">جاري التحقق من حالتك...</h2>
-
-        </div>
-
-        <StatusStyles />
-      </div>
-    );
+  if (status === "checking") {
+    return null;
   }
 
   // ============================================================
@@ -167,11 +151,11 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
 
           {/* الرسالة */}
           <p className="status-message">
-    يتم فتح الاختبارات بالتنسيق مع أ. محمد أبو سليمان
+            يتم فتح الاختبارات بالتنسيق مع أ. محمد أبو سليمان
             <br />
           </p>
 
-          {/* ⭐ زر واتساب */}
+          {/* زر واتساب */}
           <a
             href={buildWhatsAppLink()}
             target="_blank"
@@ -507,9 +491,7 @@ const StatusStyles = () => (
       font-weight: 500;
     }
 
-    /* ============================================================
-       ⭐ زر واتساب الرئيسي
-    ============================================================ */
+    /* زر واتساب */
     .whatsapp-btn {
       display: flex;
       align-items: center;
@@ -728,66 +710,6 @@ const StatusStyles = () => (
       background: #f8fafc;
       border-color: #cbd5e1;
       color: #1e293b;
-    }
-
-    /* شاشة التحميل */
-    .status-content {
-      position: relative;
-      z-index: 2;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 12px;
-    }
-
-    .loading-spinner-large {
-      position: relative;
-      width: 72px;
-      height: 72px;
-      margin-bottom: 8px;
-    }
-
-    .spinner-ring {
-      width: 100%;
-      height: 100%;
-      border: 5px solid #dbeafe;
-      border-top-color: #3b82f6;
-      border-radius: 50%;
-      animation: spin 0.9s linear infinite;
-    }
-
-    .spinner-dot {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      width: 14px;
-      height: 14px;
-      border-radius: 50%;
-      background: #3b82f6;
-      box-shadow: 0 0 20px rgba(59, 130, 246, 0.6);
-      animation: dotPulse 1.4s ease-in-out infinite;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-    @keyframes dotPulse {
-      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
-      50% { transform: translate(-50%, -50%) scale(0.7); opacity: 0.6; }
-    }
-
-    .loading-title {
-      font-size: 1.2rem;
-      font-weight: 800;
-      color: #0f172a;
-      margin: 0;
-    }
-
-    .loading-sub {
-      font-size: 0.9rem;
-      color: #64748b;
-      margin: 0;
-      font-weight: 500;
     }
 
     /* Responsive */
