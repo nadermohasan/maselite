@@ -60,7 +60,7 @@ export default function TeacherDashboard() {
   const [editingPassage, setEditingPassage] = useState(null);
   const [passageForm, setPassageForm] = useState({ title: "", passage_text: "" });
 
-  // Upload batches
+  // Upload batches (from Supabase)
   const [uploadBatches, setUploadBatches] = useState([]);
 
   // Settings modal
@@ -79,6 +79,20 @@ export default function TeacherDashboard() {
   const [editDegree, setEditDegree] = useState("");
   const [editingBatchCellId, setEditingBatchCellId] = useState(null);
   const [batchEditDegree, setBatchEditDegree] = useState("");
+
+  // ⭐ تعديل سؤال داخل الدفعة
+  const [showBatchEditModal, setShowBatchEditModal] = useState(false);
+  const [editingBatchQuestion, setEditingBatchQuestion] = useState(null);
+  const [batchFormData, setBatchFormData] = useState({
+    question_text: "",
+    optionA: "", optionB: "", optionC: "", optionD: "",
+    correct_option: 0,
+    image_url: "",
+    unit_number: "",
+    branch: "",
+    degree: "1"
+  });
+  const [batchSaving, setBatchSaving] = useState(false);
 
   const [confirmState, setConfirmState] = useState({
     isOpen: false, title: "", message: "", confirmText: "", cancelText: "", resolve: null
@@ -123,14 +137,12 @@ export default function TeacherDashboard() {
   useEffect(() => {
     const init = async () => {
       try {
-        // 1. التحقق من تسجيل الدخول
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) {
           navigate("/login", { replace: true });
           return;
         }
 
-        // 2. التحقق من الدور
         const { data: profile } = await supabase
           .from("profiles")
           .select("role, name")
@@ -145,14 +157,8 @@ export default function TeacherDashboard() {
         }
 
         setTeacherProfile(profile);
-
-        // 3. تحميل مادة اللغة الإنجليزية
         await fetchEnglishSubject();
-
-        // 4. تحميل باقي البيانات
-        loadUploadBatches();
         fetchPassages();
-        // fetchQuestions سيتم استدعاؤها بعد تحميل المادة
       } catch (err) {
         console.error("Init error:", err);
         setFetchError("حدث خطأ أثناء تحميل الصفحة");
@@ -190,8 +196,8 @@ export default function TeacherDashboard() {
       setEditDuration(data.duration_minutes || 60);
       setEditQuestionsCount(data.questions_count || 40);
 
-      // بعد تحميل المادة، اجلب الأسئلة
       fetchQuestionsBySubject(data.id);
+      fetchUploadBatches();
 
       return data;
     } catch (err) {
@@ -230,27 +236,42 @@ export default function TeacherDashboard() {
     }
   };
 
-  const fetchPassages = async () => {
-    const { data, error } = await supabase
-      .from("passages")
-      .select("*")
-      .order("created_at", { ascending: true });
+const fetchPassages = async () => {
+  const { data, error } = await supabase
+    .from("passages")
+    .select("*")
+    .order("created_at", { ascending: true });
 
-    if (!error && data) {
-      // فلترة القطع الإنجليزية فقط إن وُجد subject_id
-      const filtered = data.filter(p => !p.subject_id || p.subject_id === englishSubject?.id);
-      setPassages(filtered);
+  if (!error && data) {
+    // نحن في تطبيق اللغة الإنجليزية فقط، لذا كل القطع إنجليزية
+    setPassages(data || []);
+  }
+};
+
+  // ⭐ جلب الدفعات من Supabase
+  const fetchUploadBatches = async () => {
+    try {
+      const { data, error } = await supabase
+        .from("upload_batches")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      const mapped = (data || []).map((b) => ({
+        id: b.id,
+        date: b.created_at,
+        fileName: b.file_name,
+        count: b.questions_count,
+        subject: englishSubject?.name || "اللغة الإنجليزية",
+        isActive: b.is_active,
+      }));
+
+      setUploadBatches(mapped);
+    } catch (err) {
+      console.error("fetchUploadBatches error:", err);
+      toast.error("فشل تحميل سجل الدفعات");
     }
-  };
-
-  const loadUploadBatches = () => {
-    const saved = localStorage.getItem("teacher_upload_batches");
-    if (saved) setUploadBatches(JSON.parse(saved));
-  };
-
-  const saveUploadBatches = (batches) => {
-    localStorage.setItem("teacher_upload_batches", JSON.stringify(batches));
-    setUploadBatches(batches);
   };
 
   const fetchBatchQuestions = async (batchId) => {
@@ -617,6 +638,22 @@ export default function TeacherDashboard() {
       if (!user) throw new Error("لم يتم العثور على المستخدم");
 
       const batchId = Date.now().toString();
+
+      // 1) إنشاء الدفعة
+      const { error: batchError } = await supabase
+        .from("upload_batches")
+        .insert([{
+          id: batchId,
+          file_name: bulkFileName || "ملف غير معروف",
+          subject_id: englishSubject.id,
+          questions_count: bulkPreview.length,
+          is_active: true,
+          teacher_id: user.id,
+        }]);
+
+      if (batchError) throw batchError;
+
+      // 2) إدراج الأسئلة
       const questionsToInsert = bulkPreview.map(q => ({
         teacher_id: user.id,
         subject_id: englishSubject.id,
@@ -634,23 +671,17 @@ export default function TeacherDashboard() {
         image_option_b: null,
         image_option_c: null,
         image_option_d: null,
-        bulk_batch_id: batchId
+        bulk_batch_id: batchId,
       }));
 
       const { error } = await supabase.from("questions").insert(questionsToInsert);
-      if (error) throw error;
-
-      const newBatch = {
-        id: batchId,
-        date: new Date().toISOString(),
-        fileName: bulkFileName,
-        count: questionsToInsert.length,
-        subject: englishSubject.name,
-        isActive: true
-      };
-      saveUploadBatches([...uploadBatches, newBatch]);
+      if (error) {
+        await supabase.from("upload_batches").delete().eq("id", batchId);
+        throw error;
+      }
 
       toast.success(`تم رفع ${questionsToInsert.length} سؤال بنجاح`);
+      await fetchUploadBatches();
       setShowBulkModal(false);
       resetBulkStates();
     } catch (error) {
@@ -671,14 +702,21 @@ export default function TeacherDashboard() {
     if (!confirmed) return;
 
     try {
-      const { error } = await supabase
+      const { error: qError } = await supabase
         .from("questions")
         .update({ is_active: !currentlyActive })
         .eq("bulk_batch_id", batchId);
 
-      if (error) throw error;
+      if (qError) throw qError;
 
-      saveUploadBatches(uploadBatches.map(b =>
+      const { error: bError } = await supabase
+        .from("upload_batches")
+        .update({ is_active: !currentlyActive })
+        .eq("id", batchId);
+
+      if (bError) throw bError;
+
+      setUploadBatches(prev => prev.map(b =>
         b.id === batchId ? { ...b, isActive: !currentlyActive } : b
       ));
 
@@ -753,21 +791,35 @@ export default function TeacherDashboard() {
     }
   };
 
+  // ⭐ حذف الدفعة (CASCADE يحذف الأسئلة تلقائياً)
   const deleteBatchQuestions = async (batchId, batchIndex) => {
     const confirmed = await showConfirm({
-      title: "حذف الدفعة",
-      message: `سيتم حذف سجل الدفعة ${batchIndex + 1} (${uploadBatches[batchIndex].count} سؤال). الأسئلة الفعلية ستبقى في قاعدة البيانات.`,
-      confirmText: "حذف",
+      title: "حذف الدفعة نهائياً",
+      message: `سيتم حذف الدفعة ${batchIndex + 1} (${uploadBatches[batchIndex].count} سؤال) من قاعدة البيانات نهائياً. لا يمكن التراجع.`,
+      confirmText: "حذف نهائي",
       cancelText: "إلغاء"
     });
     if (!confirmed) return;
 
-    saveUploadBatches(uploadBatches.filter(b => b.id !== batchId));
-    if (expandedBatchId === batchId) {
-      setExpandedBatchId(null);
-      setBatchQuestions([]);
+    try {
+      const { error } = await supabase
+        .from("upload_batches")
+        .delete()
+        .eq("id", batchId);
+
+      if (error) throw error;
+
+      setUploadBatches(prev => prev.filter(b => b.id !== batchId));
+
+      if (expandedBatchId === batchId) {
+        setExpandedBatchId(null);
+        setBatchQuestions([]);
+      }
+
+      toast.success("تم حذف الدفعة وأسئلتها نهائياً");
+    } catch (error) {
+      toast.error("فشل حذف الدفعة: " + error.message);
     }
-    toast.success("تم حذف الدفعة من السجل");
   };
 
   const handleBatchRowClick = (batch) => {
@@ -781,7 +833,7 @@ export default function TeacherDashboard() {
     }
   };
 
-  // ============ Degree Editing ============
+  // ============ Degree Editing (Manual Questions) ============
   const startEditDegree = (question) => {
     setEditingCellId(question.id);
     setEditDegree(question.degree?.toString() || "1");
@@ -799,6 +851,7 @@ export default function TeacherDashboard() {
     }
   };
 
+  // ============ Degree Editing (Batch Questions) ============
   const startEditBatchDegree = (question) => {
     setEditingBatchCellId(question.id);
     setBatchEditDegree(question.degree?.toString() || "1");
@@ -813,6 +866,113 @@ export default function TeacherDashboard() {
       toast.success("تم تحديث الدرجة");
     } catch {
       toast.error("فشل تحديث الدرجة");
+    }
+  };
+
+  // ============ ⭐ Batch Question Edit / Delete ============
+  const openBatchQuestionEdit = (q) => {
+    const options = q.options || ["", "", "", ""];
+    setEditingBatchQuestion(q);
+    setBatchFormData({
+      question_text: q.question_text || "",
+      optionA: options[0] || "",
+      optionB: options[1] || "",
+      optionC: options[2] || "",
+      optionD: options[3] || "",
+      correct_option: q.correct_option ?? 0,
+      image_url: q.image_url || "",
+      unit_number: q.unit_number || "",
+      branch: q.branch || "",
+      degree: q.degree || "1"
+    });
+    setShowBatchEditModal(true);
+  };
+
+  const closeBatchEditModal = () => {
+    setShowBatchEditModal(false);
+    setEditingBatchQuestion(null);
+    setBatchFormData({
+      question_text: "",
+      optionA: "", optionB: "", optionC: "", optionD: "",
+      correct_option: 0,
+      image_url: "",
+      unit_number: "",
+      branch: "",
+      degree: "1"
+    });
+  };
+
+  const handleUpdateBatchQuestion = async (e) => {
+    e.preventDefault();
+    if (!editingBatchQuestion) return;
+
+    setBatchSaving(true);
+    try {
+      const updated = {
+        question_text: batchFormData.question_text,
+        options: [
+          batchFormData.optionA,
+          batchFormData.optionB,
+          batchFormData.optionC,
+          batchFormData.optionD,
+        ],
+        correct_option: parseInt(batchFormData.correct_option),
+        image_url: batchFormData.image_url || null,
+        unit_number: batchFormData.unit_number ? parseInt(batchFormData.unit_number) : null,
+        branch: batchFormData.branch || null,
+        degree: parseInt(batchFormData.degree) || 1,
+      };
+
+      const { error } = await supabase
+        .from("questions")
+        .update(updated)
+        .eq("id", editingBatchQuestion.id);
+
+      if (error) throw error;
+
+      toast.success("تم تعديل السؤال بنجاح");
+      closeBatchEditModal();
+      await fetchBatchQuestions(expandedBatchId);
+    } catch (err) {
+      toast.error("فشل التعديل: " + err.message);
+    } finally {
+      setBatchSaving(false);
+    }
+  };
+
+  const deleteBatchQuestion = async (questionId) => {
+    const confirmed = await showConfirm({
+      title: "حذف السؤال",
+      message: "سيتم حذف هذا السؤال نهائياً من الدفعة. هل أنت متأكد؟",
+      confirmText: "حذف",
+      cancelText: "إلغاء"
+    });
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("questions")
+        .delete()
+        .eq("id", questionId);
+
+      if (error) throw error;
+
+      // تحديث عدد الأسئلة في الدفعة
+      const newCount = batchQuestions.length - 1;
+      await supabase
+        .from("upload_batches")
+        .update({ questions_count: newCount })
+        .eq("id", expandedBatchId);
+
+      // تحديث القائمة المحلية
+      setBatchQuestions(prev => prev.filter(q => q.id !== questionId));
+      setUploadBatches(prev => prev.map(b =>
+        b.id === expandedBatchId ? { ...b, count: newCount } : b
+      ));
+
+      toast.success("تم حذف السؤال بنجاح");
+    } catch (err) {
+      toast.error("فشل الحذف: " + err.message);
     }
   };
 
@@ -1280,6 +1440,7 @@ export default function TeacherDashboard() {
             <h2 className="card-title">
               <Upload size={20} className="icon-accent" /> سجل الدفعات الجماعية
             </h2>
+            <span className="badge-count">{uploadBatches.length} دفعة</span>
           </div>
           <div className="table-responsive">
             {uploadBatches.length > 0 ? (
@@ -1326,7 +1487,7 @@ export default function TeacherDashboard() {
                             <button
                               className="btn-icon delete"
                               onClick={() => deleteBatchQuestions(batch.id, idx)}
-                              title="حذف الدفعة من السجل"
+                              title="حذف الدفعة نهائياً"
                             >
                               <Trash2 size={16} />
                             </button>
@@ -1359,7 +1520,7 @@ export default function TeacherDashboard() {
                                           <th className="text-center">الدرجة</th>
                                           <th className="text-center">الإجابة</th>
                                           <th className="text-center">الحالة</th>
-                                          <th className="text-center">إجراء</th>
+                                          <th className="text-center" style={{ width: '140px' }}>إجراءات</th>
                                         </tr>
                                       </thead>
                                       <tbody>
@@ -1431,14 +1592,32 @@ export default function TeacherDashboard() {
                                                 </span>
                                               </td>
                                               <td className="text-center">
-                                                <button
-                                                  className="btn-icon"
-                                                  style={{ color: q.is_active ? '#f59e0b' : '#10b981', width: '32px', height: '32px' }}
-                                                  onClick={() => toggleBatchQuestionActive(q.id, q.is_active, batch.id)}
-                                                  title={q.is_active ? "تعطيل السؤال" : "تفعيل السؤال"}
-                                                >
-                                                  {q.is_active ? <PowerOff size={15} /> : <Power size={15} />}
-                                                </button>
+                                                <div className="action-buttons">
+                                                  <button
+                                                    className="btn-icon"
+                                                    style={{ color: q.is_active ? '#f59e0b' : '#10b981', width: '32px', height: '32px' }}
+                                                    onClick={() => toggleBatchQuestionActive(q.id, q.is_active, batch.id)}
+                                                    title={q.is_active ? "تعطيل السؤال" : "تفعيل السؤال"}
+                                                  >
+                                                    {q.is_active ? <PowerOff size={15} /> : <Power size={15} />}
+                                                  </button>
+                                                  <button
+                                                    className="btn-icon edit"
+                                                    onClick={() => openBatchQuestionEdit(q)}
+                                                    title="تعديل"
+                                                    style={{ width: '32px', height: '32px' }}
+                                                  >
+                                                    <Edit2 size={15} />
+                                                  </button>
+                                                  <button
+                                                    className="btn-icon delete"
+                                                    onClick={() => deleteBatchQuestion(q.id)}
+                                                    title="حذف"
+                                                    style={{ width: '32px', height: '32px' }}
+                                                  >
+                                                    <Trash2 size={15} />
+                                                  </button>
+                                                </div>
                                               </td>
                                             </tr>
                                           );
@@ -1666,6 +1845,154 @@ export default function TeacherDashboard() {
                 )}
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ============ ⭐ Batch Question Edit Modal ============ */}
+      {showBatchEditModal && editingBatchQuestion && (
+        <div className="modal-backdrop" onClick={closeBatchEditModal}>
+          <div
+            className="modal-container"
+            onClick={(e) => e.stopPropagation()}
+            style={{ maxWidth: '750px' }}
+          >
+            <div className="modal-header" style={{ background: 'linear-gradient(135deg, #dbeafe, #ffffff)' }}>
+              <h3>
+                <Edit2 size={20} style={{ color: '#2563eb' }} />
+                <span style={{ color: '#0f172a' }}>تعديل السؤال</span>
+              </h3>
+              <button className="btn-close" onClick={closeBatchEditModal}>
+                <X size={20} />
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateBatchQuestion}>
+              <div className="modal-body" style={{ maxHeight: '70vh', overflowY: 'auto', padding: '24px' }}>
+
+                {/* رقم الوحدة والفرع */}
+                <div className="form-grid" style={{ marginBottom: '20px' }}>
+                  <div className="form-group">
+                    <label>رقم الوحدة</label>
+                    <input
+                      type="number"
+                      className="modern-input"
+                      value={batchFormData.unit_number}
+                      onChange={(e) => setBatchFormData({ ...batchFormData, unit_number: e.target.value })}
+                      placeholder="مثال: 1"
+                      min="1"
+                    />
+                  </div>
+
+                  <div className="form-group">
+                    <label>الفرع الدراسي</label>
+                    <select
+                      className="modern-input"
+                      value={batchFormData.branch}
+                      onChange={(e) => setBatchFormData({ ...batchFormData, branch: e.target.value })}
+                    >
+                      <option value="">مشترك (العلمي والأدبي)</option>
+                      <option value="العلمي">العلمي</option>
+                      <option value="الأدبي">الأدبي</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* نص السؤال */}
+                <div className="form-group full-width" style={{ marginBottom: '20px' }}>
+                  <label>نص السؤال <span className="required">*</span></label>
+                  <textarea
+                    required
+                    className="modern-input textarea-input"
+                    value={batchFormData.question_text}
+                    onChange={(e) => setBatchFormData({ ...batchFormData, question_text: e.target.value })}
+                    placeholder="Write the question here..."
+                    style={{ direction: 'ltr', textAlign: 'left' }}
+                  />
+                </div>
+
+                {/* الخيارات */}
+                <div style={{ marginBottom: '20px' }}>
+                  <label style={{ display: 'block', fontWeight: 600, marginBottom: '12px', fontSize: '0.95rem', color: '#0f172a' }}>
+                    الخيارات <span className="required">*</span>
+                  </label>
+                  <div className="options-grid">
+                    {[0, 1, 2, 3].map(idx => {
+                      const optKey = ["A", "B", "C", "D"][idx];
+                      const valueKey = ["optionA", "optionB", "optionC", "optionD"][idx];
+                      return (
+                        <div key={idx} className="form-group">
+                          <label className="option-label">الخيار ({optKey})</label>
+                          <input
+                            required
+                            className="modern-input"
+                            type="text"
+                            value={batchFormData[valueKey]}
+                            onChange={(e) => setBatchFormData({ ...batchFormData, [valueKey]: e.target.value })}
+                            placeholder="Option content..."
+                            style={{ direction: 'ltr', textAlign: 'left' }}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* الإجابة الصحيحة */}
+                <div className="form-group" style={{ marginBottom: '20px' }}>
+                  <label>الإجابة الصحيحة <span className="required">*</span></label>
+                  <div className="correct-answer-selector">
+                    {[0, 1, 2, 3].map(idx => (
+                      <label
+                        key={idx}
+                        className={`radio-label ${parseInt(batchFormData.correct_option) === idx ? 'selected' : ''}`}
+                      >
+                        <input
+                          type="radio"
+                          name="batch_correct_option"
+                          value={idx}
+                          checked={parseInt(batchFormData.correct_option) === idx}
+                          onChange={(e) => setBatchFormData({ ...batchFormData, correct_option: e.target.value })}
+                          className="hidden-radio"
+                        />
+                        الخيار {["A", "B", "C", "D"][idx]}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* الدرجة */}
+                <div className="form-group">
+                  <label>الدرجة</label>
+                  <input
+                    type="number"
+                    className="modern-input"
+                    value={batchFormData.degree}
+                    onChange={(e) => setBatchFormData({ ...batchFormData, degree: e.target.value })}
+                    min="1"
+                    max="100"
+                  />
+                </div>
+
+              </div>
+
+              <div className="modal-footer" style={{
+                padding: '9px 24px',
+                borderTop: '1px solid #e2e8f0',
+                display: 'flex',
+                justifyContent: 'flex-end',
+                gap: '12px',
+                background: '#fafafa'
+              }}>
+                <button type="button" className="btn-secondary" onClick={closeBatchEditModal}>
+                  إلغاء
+                </button>
+                <button type="submit" className="btn-primary" disabled={batchSaving}>
+                  <Save size={18} />
+                  {batchSaving ? 'جاري الحفظ...' : 'حفظ التعديلات'}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}
@@ -2274,7 +2601,7 @@ export default function TeacherDashboard() {
         .form-section { padding: 32px; }
         .form-section.alt-bg { background-color: #f8fafc; border-top: 1px solid var(--c-border); }
         .form-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 24px; }
-        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; margin-bottom: 24px; }
+        .options-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px; }
         .full-width { grid-column: 1 / -1; }
         .form-group label {
           display: block; font-weight: 600; color: var(--c-text-main);
