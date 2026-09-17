@@ -398,7 +398,7 @@ export default function Login() {
             animation: 'spin 0.8s linear infinite'
           }} />
           <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
-            جاري التحقق...
+          
           </p>
         </div>
         <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
