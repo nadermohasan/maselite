@@ -137,11 +137,12 @@ export default function TeacherDashboard() {
   useEffect(() => {
     const init = async () => {
       try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) {
-          navigate("/login", { replace: true });
-          return;
-        }
+const { data: { session } } = await supabase.auth.getSession();
+const user = session?.user;
+if (!user) {
+  navigate("/login", { replace: true });
+  return;
+}
 
         const { data: profile } = await supabase
           .from("profiles")
