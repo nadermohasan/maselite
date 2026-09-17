@@ -55,6 +55,59 @@ const toastInfo = (message) =>
   });
 
 // ============================================================
+// ⭐ شاشة التحميل أثناء التحقق من الجلسة
+// ============================================================
+const AuthLoadingScreen = () => (
+  <div style={{
+    minHeight: '100vh',
+    display: 'flex',
+    alignItems: 'center',
+    justifyContent: 'center',
+    background: 'linear-gradient(180deg, #f4f7fc 0%, #e9f0f9 100%)',
+    direction: 'rtl',
+    fontFamily: 'Cairo, sans-serif',
+  }}>
+    <div style={{ textAlign: 'center' }}>
+      <img
+        src="https://i.imgur.com/U5iofms.png"
+        alt="النخبة"
+        style={{
+          width: '120px',
+          height: 'auto',
+          marginBottom: '24px',
+          filter: 'drop-shadow(0 4px 12px rgba(30, 64, 175, 0.15))',
+        }}
+      />
+
+      <div style={{
+        width: '52px',
+        height: '52px',
+        border: '4px solid #dbeafe',
+        borderTopColor: '#3b82f6',
+        borderRadius: '50%',
+        animation: 'spin 0.9s linear infinite',
+        margin: '0 auto 20px',
+      }} />
+
+      <p style={{
+        color: '#475569',
+        fontWeight: 700,
+        fontSize: '0.95rem',
+        margin: 0,
+      }}>
+        جاري التحقق من الجلسة...
+      </p>
+
+      <style>{`
+        @keyframes spin { 
+          to { transform: rotate(360deg); } 
+        }
+      `}</style>
+    </div>
+  </div>
+);
+
+// ============================================================
 // توليد أسئلة المحاولة (اللغة الإنجليزية فقط)
 // ============================================================
 const generateAttemptQuestions = async (attemptId, studentBranch) => {
@@ -191,6 +244,9 @@ export default function AdminDashboard() {
     isOpen: false, batchId: null, message: ""
   });
 
+  // ⭐ حالة التحقق: 'checking' | 'authorized' | 'unauthorized'
+  const [authState, setAuthState] = useState('checking');
+
   // نافذة اختيار الكشف
   const [batchChoiceDialog, setBatchChoiceDialog] = useState({
     isOpen: false,
@@ -321,75 +377,82 @@ export default function AdminDashboard() {
   }, [studentSchoolFilter]);
 
   // ============================================================
-  // ⭐ التحقق من المصادقة مع onAuthStateChange (يحتفظ بالجلسة)
+  // ⭐ التحقق من المصادقة — نسخة مُحسَّنة (بدون وميض)
   // ============================================================
   useEffect(() => {
-    let mounted = true;
-    let initialCheckDone = false;
+    let isMounted = true;
+    let attempts = 0;
+    const MAX_ATTEMPTS = 6;
 
-    const verifyAdmin = async (session) => {
-      if (!mounted) return;
-
-      if (!session?.user) {
-        toast.error("انتهت الجلسة، يرجى تسجيل الدخول");
-        navigate("/login", { replace: true });
-        return;
-      }
+    const checkAdmin = async () => {
+      if (!isMounted) return;
+      attempts++;
 
       try {
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, role")
-          .eq("id", session.user.id)
-          .maybeSingle();
+        const { data: { session }, error: sessionError } = 
+          await supabase.auth.getSession();
 
-        if (!mounted) return;
+        if (!isMounted) return;
 
-        if (!profile || profile.role !== 'admin') {
-          toast.error("غير مصرح لك بالدخول");
-          await supabase.auth.signOut();
-          navigate("/login", { replace: true });
+        if (sessionError || !session) {
+          if (attempts < MAX_ATTEMPTS) {
+            console.log(`🔵 [Auth] Attempt ${attempts}/${MAX_ATTEMPTS}: no session, retrying...`);
+            setTimeout(checkAdmin, 300);
+            return;
+          }
+
+          console.error(`❌ [Auth] No session after ${MAX_ATTEMPTS} attempts`);
+          if (isMounted) setAuthState('unauthorized');
           return;
         }
 
+        const user = session.user;
+        if (!user) {
+          if (isMounted) setAuthState('unauthorized');
+          return;
+        }
+
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name, role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (!isMounted) return;
+
+        if (!profile || profile.role !== 'admin') {
+          console.error("❌ [Auth] User is not admin");
+          await supabase.auth.signOut();
+          if (isMounted) setAuthState('unauthorized');
+          return;
+        }
+
+        console.log("✅ [Auth] Admin verified");
         setAdminProfile(profile);
         setAuthChecked(true);
-        initialCheckDone = true;
+        setAuthState('authorized');
       } catch (err) {
-        console.error("verifyAdmin error:", err);
-        if (mounted) navigate("/login", { replace: true });
-      }
-    };
-
-    // ⭐ 1) الاشتراك في تغيّر حالة المصادقة
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        console.log("Auth event:", event);
-
-        if (event === "INITIAL_SESSION") {
-          await verifyAdmin(session);
-        } else if (event === "SIGNED_IN") {
-          if (!initialCheckDone) await verifyAdmin(session);
-        } else if (event === "SIGNED_OUT") {
-          if (mounted) navigate("/login", { replace: true });
+        console.error("Auth check error:", err);
+        if (attempts < MAX_ATTEMPTS && isMounted) {
+          setTimeout(checkAdmin, 300);
+        } else {
+          if (isMounted) setAuthState('unauthorized');
         }
-        // TOKEN_REFRESHED لا يحتاج إجراء
       }
-    );
-
-    // ⭐ 2) Fallback: بعد 500ms إذا لم يصل INITIAL_SESSION
-    const fallbackTimer = setTimeout(async () => {
-      if (initialCheckDone || !mounted) return;
-      const { data: { session } } = await supabase.auth.getSession();
-      await verifyAdmin(session);
-    }, 500);
-
-    return () => {
-      mounted = false;
-      clearTimeout(fallbackTimer);
-      subscription?.unsubscribe();
     };
-  }, [navigate]);
+
+    checkAdmin();
+
+    return () => { isMounted = false; };
+  }, []);
+
+  // ⭐ التوجيه لصفحة الدخول فقط بعد انتهاء المحاولات
+  useEffect(() => {
+    if (authState === 'unauthorized') {
+      toast.error("انتهت الجلسة، يرجى تسجيل الدخول");
+      navigate("/login", { replace: true });
+    }
+  }, [authState, navigate]);
 
   // ============================================================
   // الإحصائيات
@@ -1001,7 +1064,7 @@ export default function AdminDashboard() {
   // تحميل البيانات بعد التحقق من الصلاحية + استعادة الحالة
   // ============================================================
   useEffect(() => {
-    if (!authChecked) return;
+    if (authState !== 'authorized') return;
 
     fetchUsers();
     fetchStats();
@@ -1018,7 +1081,19 @@ export default function AdminDashboard() {
       }, 400);
       return () => clearTimeout(timer);
     }
-  }, [authChecked, fetchUsers, fetchStats, fetchActiveAttempts, fetchBatches, fetchBatchResults]);
+  }, [authState, fetchUsers, fetchStats, fetchActiveAttempts, fetchBatches, fetchBatchResults]);
+
+  // ============================================================
+  // ⭐ شاشة التحميل أثناء التحقق (تمنع وميض صفحة الدخول)
+  // ============================================================
+  if (authState === 'checking' || !authChecked) {
+    return <AuthLoadingScreen />;
+  }
+
+  // إذا وصلنا هنا و authState = 'unauthorized'، التوجيه يعمل تلقائياً
+  if (authState === 'unauthorized') {
+    return <AuthLoadingScreen />;
+  }
 
   return (
     <div className="dashboard-container">
@@ -1600,7 +1675,6 @@ export default function AdminDashboard() {
         .empty-icon { font-size: 3rem; margin-bottom: 10px; }
         .empty-state h3 { color: #1e293b; margin-bottom: 4px; }
 
-        /* نافذة اختيار الكشف */
         .modal-overlay {
           position: fixed; inset: 0;
           background: rgba(15, 23, 42, 0.55);
