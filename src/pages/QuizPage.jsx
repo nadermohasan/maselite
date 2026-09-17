@@ -59,11 +59,16 @@ export default function QuizPage() {
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [offlineError, setOfflineError] = useState(false); // حالة مضافة لتتبع انقطاع الشبكة وثبات الإرسال التلقائي
+  const [offlineError, setOfflineError] = useState(false);
   const [isEnglishSubject, setIsEnglishSubject] = useState(false);
   const [studentId, setStudentId] = useState(null);
   const [attemptId, setAttemptId] = useState(null);
   const [isReviewMode, setIsReviewMode] = useState(false);
+
+  // ⭐ وقت بدء الاختبار المسجّل في قاعدة البيانات
+  const startedAtRef = useRef(null);
+  // ⭐ مدة الاختبار
+  const durationMinutesRef = useRef(60);
 
   const [confirmState, setConfirmState] = useState({
     isOpen: false,
@@ -79,7 +84,6 @@ export default function QuizPage() {
   const blocksRef = useRef([]);
   const selectedAnswersRef = useRef({});
   const numericSubjectIdRef = useRef(parseInt(subjectId, 10));
-
   const dotsContainerRef = useRef(null);
 
   useEffect(() => {
@@ -97,28 +101,27 @@ export default function QuizPage() {
 
   const numericSubjectId = parseInt(subjectId, 10);
 
-  // --- دوال المؤقت ---
-  const getTimerStorageKey = useCallback(() => {
-    if (!studentId || !attemptId) return null;
-    return `quiz_timer_${studentId}_${numericSubjectId}_${attemptId}`;
-  }, [studentId, numericSubjectId, attemptId]);
+  // ============================================================
+  // ⭐⭐⭐ دالة حساب الوقت المتبقي من started_at
+  // ============================================================
+  const calculateRemainingTime = useCallback(() => {
+    const startISO = startedAtRef.current;
+    const duration = durationMinutesRef.current || 60;
 
-  const saveTimerState = useCallback(
-    (currentTimeLeft) => {
-      const key = getTimerStorageKey();
-      if (!key) return;
-      const data = { timeLeft: currentTimeLeft, timestamp: Date.now() };
-      localStorage.setItem(key, JSON.stringify(data));
-    },
-    [getTimerStorageKey],
-  );
+    if (!startISO) return duration * 60;
 
-  const clearTimerState = useCallback(() => {
-    const key = getTimerStorageKey();
-    if (key) localStorage.removeItem(key);
-  }, [getTimerStorageKey]);
+    const startMs = new Date(startISO).getTime();
+    const deadlineMs = startMs + duration * 60 * 1000;
+    const remaining = Math.max(
+      0,
+      Math.floor((deadlineMs - Date.now()) / 1000)
+    );
+    return remaining;
+  }, []);
 
-  // --- دوال مساعدة لإدارة إجابات الذاكرة المحلية ---
+  // ============================================================
+  // ⭐ دوال مساعدة لإدارة إجابات الذاكرة المحلية
+  // ============================================================
   const getAnswersStorageKey = useCallback(() => {
     if (!studentId || !attemptId) return null;
     return `quiz_answers_${studentId}_${numericSubjectId}_${attemptId}`;
@@ -153,44 +156,41 @@ export default function QuizPage() {
     setConfirmState((prev) => ({ ...prev, isOpen: false }));
   };
 
-  // --- تسليم الاختبار المعدل بالكامل ليدعم العمل دون إنترنت وسيرفر آمن ---
+  // ============================================================
+  // تسليم الاختبار
+  // ============================================================
   const performSubmit = useCallback(
     async (isAuto = false) => {
       if (hasAutoSubmitted.current || submitting) return false;
 
-      // 1. فحص الاتصال بالإنترنت أولاً وقبل أي إجراء
       if (!navigator.onLine) {
-toast.error(
-  <>
-    انقطع الاتصال بالإنترنت!
-    <br />
-    يرجى التأكد من الشبكة.
-  </>
-);
-}
+        toast.error(
+          <>
+            انقطع الاتصال بالإنترنت!
+            <br />
+            يرجى التأكد من الشبكة.
+          </>
+        );
+      }
 
       hasAutoSubmitted.current = true;
       setSubmitting(true);
 
-      // إيقاف المؤقت بصرياً فقط لكي لا يستمر في العد، لكن لا نمسح الذاكرة المحلية بعد
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
 
       try {
-        // التعامل مع خطأ الشبكة المحتمل من Supabase بشكل صريح
         const {
           data: { user },
           error: authError,
         } = await supabase.auth.getUser();
 
         if (authError || !user) {
-          // إذا كان الخطأ بسبب الشبكة، نلقي خطأ ليتم اصطياده في catch
           if (authError?.message?.includes("fetch") || !navigator.onLine) {
             throw new Error("مشكلة في الاتصال بالشبكة.");
           }
-          // إذا لم يكن هناك مستخدم فعلاً (الجلسة منتهية)
           navigate("/login");
           return false;
         }
@@ -265,7 +265,7 @@ toast.error(
 
         const finishedSubjectIds = finishedResults.map((r) => r.subject_id);
         const isLastSubject = requiredSubjectIds.every((id) =>
-          finishedSubjectIds.includes(id),
+          finishedSubjectIds.includes(id)
         );
 
         if (isLastSubject) {
@@ -275,8 +275,6 @@ toast.error(
             .eq("id", activeAttempt.id);
         }
 
-        // 2. 🟢 هنا فقط وفقط بعد نجاح كل شيء، نقوم بمسح البيانات من الذاكرة المحلية
-        clearTimerState();
         clearAnswersState();
 
         navigate("/result", {
@@ -294,11 +292,9 @@ toast.error(
         return true;
       } catch (err) {
         console.error("Submit error:", err);
-        // إعادة تهيئة المتغيرات ليتمكن الطالب من المحاولة مجدداً عند عودة الإنترنت
         hasAutoSubmitted.current = false;
         setSubmitting(false);
 
-        // إعادة تشغيل المؤقت إذا لم يكن الاختبار قد انتهى وقته
         if (timeLeft > 1 && !isReviewMode) {
           timerRef.current = setInterval(() => {
             setTimeLeft((prev) => {
@@ -314,31 +310,31 @@ toast.error(
         }
 
         toast.error(
-  err.message.includes("الشبكة") || err.message.includes("fetch") ? (
-    <>
-تم حفظ إجاباتك.
-      <br />
-يرجى محاولة التسليم لاحقاً بعد عودة الاتصال.
-    </>
-  ) : (
-    <>
-      حدث خطأ أثناء تسليم الاختبار:
-      <br />
-      {err.message}
-    </>
-  )
-);
+          err.message.includes("الشبكة") || err.message.includes("fetch") ? (
+            <>
+              تم حفظ إجاباتك.
+              <br />
+              يرجى محاولة التسليم لاحقاً بعد عودة الاتصال.
+            </>
+          ) : (
+            <>
+              حدث خطأ أثناء تسليم الاختبار:
+              <br />
+              {err.message}
+            </>
+          )
+        );
         return false;
       }
     },
     [
       navigate,
       submitting,
-      clearTimerState,
       clearAnswersState,
       timeLeft,
       isReviewMode,
-    ],
+      subjectName,
+    ]
   );
 
   const handleAutoSubmit = useCallback(() => {
@@ -346,7 +342,9 @@ toast.error(
     performSubmit(true);
   }, [performSubmit, submitting]);
 
-  // --- بدء المؤقت وإدارة الصفر الفوري ---
+  // ============================================================
+  // ⭐⭐⭐ المؤقت — يعمل من started_at ويستمر حتى بعد refresh
+  // ============================================================
   useEffect(() => {
     if (
       !loading &&
@@ -377,14 +375,53 @@ toast.error(
     };
   }, [loading, blocks, timeLeft, handleAutoSubmit, submitting, isReviewMode]);
 
-  // --- مستمع ذكي مضاف لاستشعار عودة الإنترنت وإتمام التسليم المقطوع تلقائياً ---
+  // ============================================================
+  // ⭐⭐⭐ مزامنة الوقت عند العودة للتبويب (visibility change)
+  // ============================================================
+  useEffect(() => {
+    if (isReviewMode) return;
+    if (!startedAtRef.current) return;
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        const recalculated = calculateRemainingTime();
+        console.log("⏱️ إعادة حساب الوقت المتبقي:", recalculated);
+        setTimeLeft(recalculated);
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isReviewMode, calculateRemainingTime]);
+
+  // ============================================================
+  // ⭐⭐⭐ مزامنة الوقت عند استعادة التركيز (window focus)
+  // ============================================================
+  useEffect(() => {
+    if (isReviewMode) return;
+    if (!startedAtRef.current) return;
+
+    const handleFocus = () => {
+      const recalculated = calculateRemainingTime();
+      setTimeLeft(recalculated);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    return () => {
+      window.removeEventListener("focus", handleFocus);
+    };
+  }, [isReviewMode, calculateRemainingTime]);
+
+  // --- مستمع عودة الإنترنت ---
   useEffect(() => {
     const handleOnlineRestored = () => {
       if (offlineError) {
         toast.success(
           isEnglishSubject
             ? "Internet connection restored! Automatically submitting your exam now..."
-            : "تم استعادة الاتصال بالإنترنت! جاري تسليم الاختبار وحفظ درجتك بالكامل الآن...",
+            : "تم استعادة الاتصال بالإنترنت! جاري تسليم الاختبار وحفظ درجتك بالكامل الآن..."
         );
         performSubmit(timeLeft === 0 || hasAutoSubmitted.current);
       }
@@ -394,31 +431,7 @@ toast.error(
     return () => window.removeEventListener("online", handleOnlineRestored);
   }, [offlineError, timeLeft, performSubmit, isEnglishSubject]);
 
-  // --- إلغاء المؤقت ومسح التخزين في المراجعة ---
-  useEffect(() => {
-    if (isReviewMode) {
-      clearTimerState();
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-    }
-  }, [isReviewMode, clearTimerState]);
-
-  // --- حفظ المؤقت تلقائياً ---
-  useEffect(() => {
-    if (
-      timeLeft !== null &&
-      !loading &&
-      studentId &&
-      attemptId &&
-      !isReviewMode
-    ) {
-      saveTimerState(timeLeft);
-    }
-  }, [timeLeft, loading, studentId, attemptId, saveTimerState, isReviewMode]);
-
-  // --- خطاف الحفظ التلقائي الفوري للإجابات ---
+  // --- حفظ الإجابات محلياً ---
   useEffect(() => {
     if (
       !loading &&
@@ -429,7 +442,9 @@ toast.error(
     ) {
       const key = getAnswersStorageKey();
       if (key) {
-        localStorage.setItem(key, JSON.stringify(selectedAnswers));
+        try {
+          localStorage.setItem(key, JSON.stringify(selectedAnswers));
+        } catch {}
       }
     }
   }, [
@@ -441,7 +456,9 @@ toast.error(
     getAnswersStorageKey,
   ]);
 
-  // --- جلب بيانات الاختبار واستعادة الحالة ---
+  // ============================================================
+  // ⭐⭐⭐ جلب بيانات الاختبار (مع تسجيل started_at)
+  // ============================================================
   const fetchQuizData = useCallback(async () => {
     setLoading(true);
     try {
@@ -453,7 +470,7 @@ toast.error(
       const currentStudentId = user.id;
       setStudentId(currentStudentId);
 
-      // 1. جلب أحدث محاولة للطالب
+      // 1. جلب أحدث محاولة
       const { data: attemptData } = await supabase
         .from("attempts")
         .select("*")
@@ -462,24 +479,45 @@ toast.error(
         .limit(1)
         .maybeSingle();
 
-if (!attemptData) {
-  setError("no_active_attempt");
-  return;
-}
-setAttemptId(attemptData.id);
+      if (!attemptData) {
+        setError("no_active_attempt");
+        return;
+      }
+      setAttemptId(attemptData.id);
 
-if (attemptData.status === "active" && !attemptData.started_at) {
-  try {
-    await supabase
-      .from("attempts")
-      .update({ started_at: new Date().toISOString() })
-      .eq("id", attemptData.id);
-  } catch (err) {
-    console.warn("تعذر تسجيل وقت البدء:", err);
-  }
-}
+      // ============================================================
+      // ⭐⭐⭐ تسجيل started_at في قاعدة البيانات (مرة واحدة فقط)
+      // ============================================================
+      let effectiveStartTime = attemptData.started_at;
 
-      // 2. التحقق من وجود نتيجة سابقة لهذه المادة
+      if (attemptData.status === "active" && !effectiveStartTime) {
+        const nowISO = new Date().toISOString();
+
+        try {
+          const { error: updateError } = await supabase
+            .from("attempts")
+            .update({ started_at: nowISO })
+            .eq("id", attemptData.id);
+
+          if (updateError) {
+            console.error("❌ فشل تسجيل started_at:", updateError);
+            // احتياطي: استخدم created_at
+            effectiveStartTime = attemptData.created_at;
+          } else {
+            effectiveStartTime = nowISO;
+            console.log("✅ تم تسجيل وقت البدء:", nowISO);
+          }
+        } catch (err) {
+          console.error("Exception تسجيل started_at:", err);
+          effectiveStartTime = attemptData.created_at;
+        }
+      } else if (effectiveStartTime) {
+        console.log("✅ استخدام وقت البدء المحفوظ:", effectiveStartTime);
+      }
+
+      startedAtRef.current = effectiveStartTime;
+
+      // 2. التحقق من نتيجة سابقة (للمراجعة)
       const { data: existingResult } = await supabase
         .from("results")
         .select("*")
@@ -494,7 +532,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         setError("attempt_closed");
         return;
       } else {
-        // استعادة الإجابات المحفوظة محلياً إن وجدت للمحاولة الحالية الحية
+        // استعادة الإجابات المحفوظة محلياً
         const answersKey = `quiz_answers_${currentStudentId}_${numericSubjectId}_${attemptData.id}`;
         const savedAnswers = localStorage.getItem(answersKey);
         if (savedAnswers) {
@@ -506,7 +544,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         }
       }
 
-      // 3. جلب معرفات الأسئلة من attempt_questions
+      // 3. جلب معرفات الأسئلة
       const { data: aqData } = await supabase
         .from("attempt_questions")
         .select("question_id")
@@ -524,7 +562,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
       const { data: questionsData } = await supabase
         .from("questions")
         .select(
-          "*, image_option_a, image_option_b, image_option_c, image_option_d",
+          "*, image_option_a, image_option_b, image_option_c, image_option_d"
         )
         .in("id", questionIds)
         .order("created_at", { ascending: true });
@@ -534,7 +572,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         return;
       }
 
-      // 5. جلب تفاصيل المادة
+      // 5. تفاصيل المادة
       const { data: subjectInfo } = await supabase
         .from("subjects")
         .select("name, duration_minutes")
@@ -545,31 +583,37 @@ if (attemptData.status === "active" && !attemptData.started_at) {
       setIsEnglishSubject(isEnglish);
       setSubjectName(subjectInfo?.name || "اختبار");
 
-      // 6. إعداد المؤقت (فقط لو لم نكن في المراجعة)
-      if (!existingResult) {
-        const durationMinutes = subjectInfo?.duration_minutes || 60;
-        const defaultTime = durationMinutes * 60;
+      const durationMinutes = subjectInfo?.duration_minutes || 60;
+      durationMinutesRef.current = durationMinutes;
 
-        const storageKey = `quiz_timer_${currentStudentId}_${numericSubjectId}_${attemptData.id}`;
-        const saved = localStorage.getItem(storageKey);
-        let savedTime = null;
-        if (saved) {
-          try {
-            const { timeLeft: savedTimeLeft, timestamp } = JSON.parse(saved);
-            const elapsed = Math.floor((Date.now() - timestamp) / 1000);
-            savedTime = Math.max(0, savedTimeLeft - elapsed);
-          } catch (e) {}
+      // ============================================================
+      // ⭐⭐⭐ حساب الوقت المتبقي من started_at
+      // ============================================================
+      if (!existingResult) {
+        const effectiveStart = startedAtRef.current;
+        if (effectiveStart) {
+          const startMs = new Date(effectiveStart).getTime();
+          const deadlineMs = startMs + durationMinutes * 60 * 1000;
+          const remainingSeconds = Math.max(
+            0,
+            Math.floor((deadlineMs - Date.now()) / 1000)
+          );
+          console.log(
+            "⏱️ الوقت المتبقي:",
+            remainingSeconds,
+            "ثانية =",
+            Math.floor(remainingSeconds / 60),
+            "دقيقة"
+          );
+          setTimeLeft(remainingSeconds);
+        } else {
+          setTimeLeft(durationMinutes * 60);
         }
-        const initialTime =
-          savedTime !== null && savedTime < defaultTime
-            ? savedTime
-            : defaultTime;
-        setTimeLeft(initialTime);
       } else {
         setTimeLeft(null);
       }
 
-      // 7. بناء الكتل (blocks)
+      // 6. بناء الكتل
       let finalBlocks = [];
       if (isEnglish) {
         const passageIds = [
@@ -593,12 +637,12 @@ if (attemptData.status === "active" && !attemptData.started_at) {
           } else standalone.push(q);
         });
         const sortedPassages = passages.sort(
-          (a, b) => new Date(a.created_at) - new Date(b.created_at),
+          (a, b) => new Date(a.created_at) - new Date(b.created_at)
         );
         for (const passage of sortedPassages) {
           const questionsOfPassage = passageQuestionsMap.get(passage.id) || [];
           questionsOfPassage.sort(
-            (a, b) => new Date(a.created_at) - new Date(b.created_at),
+            (a, b) => new Date(a.created_at) - new Date(b.created_at)
           );
           finalBlocks.push({
             type: "passage",
@@ -607,7 +651,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
           });
         }
         standalone.forEach((q) =>
-          finalBlocks.push({ type: "single", question: q }),
+          finalBlocks.push({ type: "single", question: q })
         );
       } else {
         finalBlocks = questionsData.map((q) => ({
@@ -635,7 +679,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
     };
   }, [subjectId, fetchQuizData, numericSubjectId]);
 
-  // تمرير الأرقام تلقائياً لتكون في المنتصف
+  // تمرير الأرقام تلقائياً
   useEffect(() => {
     if (dotsContainerRef.current) {
       const activeDot = dotsContainerRef.current.querySelector(".dot.active");
@@ -654,7 +698,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
     const totalQuestions = blocks.reduce(
       (acc, block) =>
         acc + (block.type === "passage" ? block.questions.length : 1),
-      0,
+      0
     );
     const answeredCount = Object.keys(selectedAnswers).length;
     const unanswered = totalQuestions - answeredCount;
@@ -742,11 +786,10 @@ if (attemptData.status === "active" && !attemptData.started_at) {
           * { box-sizing: border-box; margin: 0; }
           body { margin: 0; background-color: #f4f7fb; font-family: 'Cairo', sans-serif; direction: rtl; }
           .quiz-page-wrapper { min-height: 100vh; display: flex; flex-direction: column; background: #f4f7fb; }
-          .quiz-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); padding: 16px 40px; -webkit-backdrop-filter: blur(20px); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.5); border-radius: 0 0 32px 32px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+          .quiz-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); padding: 16px 40px; -webkit-backdrop-filter: blur(20px); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.5); border-radius: 0 0 32px 32px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
           .timer-pill { background: white; border: 1px solid #e2e8f0; padding: 8px 20px; border-radius: 50px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; }
           .center-brand { display: flex; align-items: center; gap: 12px; }
           .quiz-logo { height: 65px; width: auto; }
-          .quiz-brand-name { font-weight: 800; color: #1e3a8a; font-size: 1.15rem; }
           .submit-quiz-btn { background: #3b82f6; color: white; border: none; padding: 10px 28px; border-radius: 14px; font-weight: 700; cursor: pointer; font-family: 'Cairo'; }
           .progress-container { height: 6px; background: #e2e8f0; width: 100%; }
           .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #60a5fa); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); }
@@ -769,7 +812,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
 
   const totalQuestionsCount = blocks.reduce(
     (acc, b) => acc + (b.type === "passage" ? b.questions.length : 1),
-    0,
+    0
   );
 
   const displayTotal = totalBlocks;
@@ -852,7 +895,6 @@ if (attemptData.status === "active" && !attemptData.started_at) {
       </div>
 
       <main className="quiz-main-content">
-        {/* لافتة التحذير العائمة عند انقطاع الإنترنت لمنع هلع الطلاب ودعم UX احترافي */}
         {offlineError && (
           <div className="offline-notification-banner">
             <div className="offline-banner-content">
@@ -1016,7 +1058,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
                 let isCompleted = false;
                 if (block.type === "passage") {
                   isCompleted = block.questions.every(
-                    (q) => selectedAnswers[q.id] !== undefined,
+                    (q) => selectedAnswers[q.id] !== undefined
                   );
                 } else {
                   isCompleted =
@@ -1066,8 +1108,8 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         body { margin: 0; background-color: #f4f7fb; font-family: 'Cairo', sans-serif; direction: rtl; -webkit-font-smoothing: antialiased; }
 
         .quiz-page-wrapper { min-height: 100vh; display: flex; flex-direction: column; background: #f4f7fb; }
-        
-        .quiz-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); padding: 16px 40px; -webkit-backdrop-filter: blur(20px); display: flex; justify-content: space-between; align-items: center; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.03); position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.5); border-radius: 0 0 32px 32px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
+
+        .quiz-header { background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(20px); padding: 16px 40px; -webkit-backdrop-filter: blur(20px); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 1000; border-bottom: 1px solid rgba(255, 255, 255, 0.5); border-radius: 0 0 32px 32px; box-shadow: 0 8px 32px rgba(15, 23, 42, 0.08), 0 2px 8px rgba(15, 23, 42, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.6); }
         .timer-pill { background: #ffffff; border: 1px solid #eef2f6; padding: 8px 20px; border-radius: 50px; font-weight: 700; color: #1e293b; display: flex; align-items: center; gap: 8px; font-size: 1.1rem; box-shadow: 0 2px 10px rgba(0,0,0,0.02); }
         .time-warning { color: #f59e0b; animation: pulse 1.5s infinite; }
         .time-critical { color: #ef4444; animation: pulse 0.5s infinite; font-weight: 800; }
@@ -1080,8 +1122,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         .progress-container { height: 6px; background: #eef2f6; width: 100%; overflow: hidden; }
         .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); border-radius: 0 4px 4px 0; }
         .quiz-main-content { flex: 1; padding: 40px 20px; max-width: 960px; margin: 0 auto; width: 100%; }
-        
-        /* تنسيقات لافتة انقطاع الاتصال */
+
         .offline-notification-banner { background: #fef2f2; border: 2px dashed #fca5a5; border-radius: 20px; padding: 16px 24px; margin-bottom: 28px; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.08); animation: fadeIn 0.4s ease; }
         .offline-banner-content { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
         .offline-banner-icon { font-size: 1.5rem; }
@@ -1093,12 +1134,12 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         .q-header { margin-bottom: 24px; }
         .q-number { background: #f0fdf4; color: #16a34a; padding: 8px 18px; border-radius: 100px; font-weight: 700; font-size: 0.95rem; display: inline-block; border: 1px solid #dcfce7; }
         .question-degree { margin-inline-start: 8px; font-size: 0.85rem; color: #64748b; }
-        
+
         .passage-box { padding: 30px; border-radius: 20px; margin-bottom: 35px; overflow: hidden; text-align: start; background: #f8fafc; border: 1px solid #e2e8f0; position: relative; }
         .passage-accent { position: absolute; top: 0; inset-inline-start: 0; bottom: 0; width: 4px; background: #3b82f6; border-radius: 4px; }
         .passage-box h3 { margin: 0 0 16px 0; color: #0f172a; font-size: 1.35rem; font-weight: 800; }
         .passage-box p { line-height: 22px; color: #334155; font-size: 15px; text-align: justify; }
-        
+
         .questions-container { display: flex; flex-direction: column; gap: 45px; }
         .single-question-wrapper { border-top: 1px dashed #e2e8f0; padding-top: 35px; }
         .single-question-wrapper:first-child { border-top: none; padding-top: 0; }
@@ -1126,7 +1167,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
 
         .option-image-wrapper { max-width: 130px; flex-shrink: 0; }
         .option-image { max-width: 100%; max-height: 100px; border-radius: 14px; object-fit: contain; background: white; border: 1px solid #e2e8f0; padding: 4px; }
-        
+
         .check-circle { width: 26px; height: 26px; border: 2.5px solid #cbd5e1; border-radius: 50%; flex-shrink: 0; margin-left: auto; }
         .selected .check-circle { border-color: #3b82f6; background: #3b82f6; position: relative; transform: scale(1.1); }
         .selected .check-circle::after { content: '✓'; color: white; font-size: 14px; font-weight: bold; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); }
@@ -1153,7 +1194,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
           .quiz-header { padding: 12px 20px; }
           .question-card { padding: 24px 20px; border-radius: 24px; }
           .question-text { font-size: 1.2rem; }
-          .quiz-logo { height: 35px; }
+          .quiz-logo { height: 44px; }
           .quiz-nav-controls { gap: 8px; }
           .nav-btn { padding: 10px 14px; font-size: 0.9rem; border-radius: 14px; }
           .q-dots-scroll-container { gap: 8px; padding: 10px 20px; mask-image: none; -webkit-mask-image: none; }
@@ -1164,7 +1205,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
           .questions-container { gap: 32px; }
           .passage-box { max-height: 350px; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px; }
         }
-        
+
         @media (max-width: 380px) {
           .quiz-nav-controls { flex-wrap: wrap; justify-content: center; }
           .q-dots-scroll-container { order: -1; width: 100%; margin-bottom: 12px; }
