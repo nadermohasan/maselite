@@ -59,7 +59,7 @@ export default function QuizPage() {
   const [error, setError] = useState("");
   const [timeLeft, setTimeLeft] = useState(null);
   const [submitting, setSubmitting] = useState(false);
-  const [offlineError, setOfflineError] = useState(false); // حالة مضافة لتتبع انقطاع الشبكة وثبات الإرسال التلقائي
+  const [offlineError, setOfflineError] = useState(false);
   const [isEnglishSubject, setIsEnglishSubject] = useState(false);
   const [studentId, setStudentId] = useState(null);
   const [attemptId, setAttemptId] = useState(null);
@@ -94,6 +94,22 @@ export default function QuizPage() {
       document.title = "جاري تحضير الاختبار..";
     }
   }, [subjectName]);
+
+  // ============================================================
+  // ⭐ مستمع حالة المصادقة (يمنع الخروج الخاطئ عند التحديث)
+  // ============================================================
+  useEffect(() => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (event === "SIGNED_OUT") {
+          navigate("/login", { replace: true });
+        }
+        // INITIAL_SESSION يحدث عند استعادة الجلسة من localStorage - لا نفعل شيئاً
+        // TOKEN_REFRESHED / SIGNED_IN - لا نفعل شيئاً
+      }
+    );
+    return () => subscription.unsubscribe();
+  }, [navigate]);
 
   const numericSubjectId = parseInt(subjectId, 10);
 
@@ -153,45 +169,42 @@ export default function QuizPage() {
     setConfirmState((prev) => ({ ...prev, isOpen: false }));
   };
 
-  // --- تسليم الاختبار المعدل بالكامل ليدعم العمل دون إنترنت وسيرفر آمن ---
+  // --- تسليم الاختبار ---
   const performSubmit = useCallback(
     async (isAuto = false) => {
       if (hasAutoSubmitted.current || submitting) return false;
 
-      // 1. فحص الاتصال بالإنترنت أولاً وقبل أي إجراء
       if (!navigator.onLine) {
-toast.error(
-  <>
-    انقطع الاتصال بالإنترنت!
-    <br />
-    يرجى التأكد من الشبكة.
-  </>
-);
-}
+        toast.error(
+          <>
+            انقطع الاتصال بالإنترنت!
+            <br />
+            يرجى التأكد من الشبكة.
+          </>
+        );
+      }
 
       hasAutoSubmitted.current = true;
       setSubmitting(true);
 
-      // إيقاف المؤقت بصرياً فقط لكي لا يستمر في العد، لكن لا نمسح الذاكرة المحلية بعد
       if (timerRef.current) {
         clearInterval(timerRef.current);
         timerRef.current = null;
       }
 
       try {
-        // التعامل مع خطأ الشبكة المحتمل من Supabase بشكل صريح
+        // ⭐ تعديل: استخدام getSession بدلاً من getUser
         const {
-          data: { user },
+          data: { session },
           error: authError,
-        } = await supabase.auth.getUser();
+        } = await supabase.auth.getSession();
+        const user = session?.user;
 
         if (authError || !user) {
-          // إذا كان الخطأ بسبب الشبكة، نلقي خطأ ليتم اصطياده في catch
           if (authError?.message?.includes("fetch") || !navigator.onLine) {
             throw new Error("مشكلة في الاتصال بالشبكة.");
           }
-          // إذا لم يكن هناك مستخدم فعلاً (الجلسة منتهية)
-          navigate("/login");
+          navigate("/login", { replace: true });
           return false;
         }
 
@@ -275,7 +288,6 @@ toast.error(
             .eq("id", activeAttempt.id);
         }
 
-        // 2. 🟢 هنا فقط وفقط بعد نجاح كل شيء، نقوم بمسح البيانات من الذاكرة المحلية
         clearTimerState();
         clearAnswersState();
 
@@ -294,11 +306,9 @@ toast.error(
         return true;
       } catch (err) {
         console.error("Submit error:", err);
-        // إعادة تهيئة المتغيرات ليتمكن الطالب من المحاولة مجدداً عند عودة الإنترنت
         hasAutoSubmitted.current = false;
         setSubmitting(false);
 
-        // إعادة تشغيل المؤقت إذا لم يكن الاختبار قد انتهى وقته
         if (timeLeft > 1 && !isReviewMode) {
           timerRef.current = setInterval(() => {
             setTimeLeft((prev) => {
@@ -314,20 +324,20 @@ toast.error(
         }
 
         toast.error(
-  err.message.includes("الشبكة") || err.message.includes("fetch") ? (
-    <>
-تم حفظ إجاباتك.
-      <br />
-يرجى محاولة التسليم لاحقاً بعد عودة الاتصال.
-    </>
-  ) : (
-    <>
-      حدث خطأ أثناء تسليم الاختبار:
-      <br />
-      {err.message}
-    </>
-  )
-);
+          err.message.includes("الشبكة") || err.message.includes("fetch") ? (
+            <>
+              تم حفظ إجاباتك.
+              <br />
+              يرجى محاولة التسليم لاحقاً بعد عودة الاتصال.
+            </>
+          ) : (
+            <>
+              حدث خطأ أثناء تسليم الاختبار:
+              <br />
+              {err.message}
+            </>
+          )
+        );
         return false;
       }
     },
@@ -377,7 +387,7 @@ toast.error(
     };
   }, [loading, blocks, timeLeft, handleAutoSubmit, submitting, isReviewMode]);
 
-  // --- مستمع ذكي مضاف لاستشعار عودة الإنترنت وإتمام التسليم المقطوع تلقائياً ---
+  // --- مستمع عودة الإنترنت ---
   useEffect(() => {
     const handleOnlineRestored = () => {
       if (offlineError) {
@@ -418,7 +428,7 @@ toast.error(
     }
   }, [timeLeft, loading, studentId, attemptId, saveTimerState, isReviewMode]);
 
-  // --- خطاف الحفظ التلقائي الفوري للإجابات ---
+  // --- حفظ الإجابات تلقائياً ---
   useEffect(() => {
     if (
       !loading &&
@@ -445,10 +455,12 @@ toast.error(
   const fetchQuizData = useCallback(async () => {
     setLoading(true);
     try {
+      // ⭐ تعديل: استخدام getSession بدلاً من getUser
       const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (!user) return navigate("/login");
+        data: { session },
+      } = await supabase.auth.getSession();
+      const user = session?.user;
+      if (!user) return navigate("/login", { replace: true });
 
       const currentStudentId = user.id;
       setStudentId(currentStudentId);
@@ -462,22 +474,22 @@ toast.error(
         .limit(1)
         .maybeSingle();
 
-if (!attemptData) {
-  setError("no_active_attempt");
-  return;
-}
-setAttemptId(attemptData.id);
+      if (!attemptData) {
+        setError("no_active_attempt");
+        return;
+      }
+      setAttemptId(attemptData.id);
 
-if (attemptData.status === "active" && !attemptData.started_at) {
-  try {
-    await supabase
-      .from("attempts")
-      .update({ started_at: new Date().toISOString() })
-      .eq("id", attemptData.id);
-  } catch (err) {
-    console.warn("تعذر تسجيل وقت البدء:", err);
-  }
-}
+      if (attemptData.status === "active" && !attemptData.started_at) {
+        try {
+          await supabase
+            .from("attempts")
+            .update({ started_at: new Date().toISOString() })
+            .eq("id", attemptData.id);
+        } catch (err) {
+          console.warn("تعذر تسجيل وقت البدء:", err);
+        }
+      }
 
       // 2. التحقق من وجود نتيجة سابقة لهذه المادة
       const { data: existingResult } = await supabase
@@ -494,7 +506,6 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         setError("attempt_closed");
         return;
       } else {
-        // استعادة الإجابات المحفوظة محلياً إن وجدت للمحاولة الحالية الحية
         const answersKey = `quiz_answers_${currentStudentId}_${numericSubjectId}_${attemptData.id}`;
         const savedAnswers = localStorage.getItem(answersKey);
         if (savedAnswers) {
@@ -506,7 +517,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         }
       }
 
-      // 3. جلب معرفات الأسئلة من attempt_questions
+      // 3. جلب معرفات الأسئلة
       const { data: aqData } = await supabase
         .from("attempt_questions")
         .select("question_id")
@@ -545,7 +556,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
       setIsEnglishSubject(isEnglish);
       setSubjectName(subjectInfo?.name || "اختبار");
 
-      // 6. إعداد المؤقت (فقط لو لم نكن في المراجعة)
+      // 6. إعداد المؤقت
       if (!existingResult) {
         const durationMinutes = subjectInfo?.duration_minutes || 60;
         const defaultTime = durationMinutes * 60;
@@ -635,7 +646,7 @@ if (attemptData.status === "active" && !attemptData.started_at) {
     };
   }, [subjectId, fetchQuizData, numericSubjectId]);
 
-  // تمرير الأرقام تلقائياً لتكون في المنتصف
+  // تمرير الأرقام تلقائياً
   useEffect(() => {
     if (dotsContainerRef.current) {
       const activeDot = dotsContainerRef.current.querySelector(".dot.active");
@@ -852,7 +863,6 @@ if (attemptData.status === "active" && !attemptData.started_at) {
       </div>
 
       <main className="quiz-main-content">
-        {/* لافتة التحذير العائمة عند انقطاع الإنترنت لمنع هلع الطلاب ودعم UX احترافي */}
         {offlineError && (
           <div className="offline-notification-banner">
             <div className="offline-banner-content">
@@ -1081,7 +1091,6 @@ if (attemptData.status === "active" && !attemptData.started_at) {
         .progress-bar { height: 100%; background: linear-gradient(90deg, #3b82f6, #8b5cf6); transition: width 0.5s cubic-bezier(0.4,0,0.2,1); border-radius: 0 4px 4px 0; }
         .quiz-main-content { flex: 1; padding: 40px 20px; max-width: 960px; margin: 0 auto; width: 100%; }
         
-        /* تنسيقات لافتة انقطاع الاتصال */
         .offline-notification-banner { background: #fef2f2; border: 2px dashed #fca5a5; border-radius: 20px; padding: 16px 24px; margin-bottom: 28px; box-shadow: 0 4px 20px rgba(239, 68, 68, 0.08); animation: fadeIn 0.4s ease; }
         .offline-banner-content { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; justify-content: space-between; }
         .offline-banner-icon { font-size: 1.5rem; }
