@@ -11,12 +11,15 @@ export default function Login() {
   const [view, setView] = useState('student'); // 'student' | 'signup' | 'staff'
   const [loading, setLoading] = useState(false);
 
+  // ⭐ جديد: يمنع وميض نموذج الدخول حتى نتأكد من الجلسة
+  const [authChecking, setAuthChecking] = useState(true);
+
   // STUDENT DATA
   const [studentId, setStudentId] = useState('');
   const [fullName, setFullName] = useState('');
   const [branch, setBranch] = useState('');
   const [phone, setPhone] = useState('');
-  const [school, setSchool] = useState(''); // ⭐ جديد
+  const [school, setSchool] = useState('');
 
   // STAFF DATA (teacher + admin)
   const [staffUsername, setStaffUsername] = useState('');
@@ -31,59 +34,58 @@ export default function Login() {
 
   const navigate = useNavigate();
 
-  // ⭐ التحقق من وجود جلسة سابقة عند فتح الصفحة
-useEffect(() => {
-  let mounted = true;
+  // ============================================================
+  // ⭐ التحقق من الجلسة قبل عرض نموذج الدخول (يمنع الوميض)
+  // ============================================================
+  useEffect(() => {
+    let mounted = true;
 
-  const checkExistingSession = async () => {
-    try {
-      console.log("🔍 [Login] Checking for existing session...");
-      
-      // ⭐ ننتظر قليلاً حتى تُقرأ الجلسة من localStorage
-      await new Promise(resolve => setTimeout(resolve, 300));
-
-      const { data: { session }, error: sessionError } = 
-        await supabase.auth.getSession();
-
-      console.log("🔍 [Login] Session:", session ? "EXISTS" : "NULL");
-      console.log("🔍 [Login] Error:", sessionError?.message || "none");
-
-      if (!mounted) return;
-
-      if (session?.user) {
-        console.log("✅ [Login] Session found, fetching profile...");
-        
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("role")
-          .eq("id", session.user.id)
-          .maybeSingle();
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
 
         if (!mounted) return;
 
-        console.log("✅ [Login] Profile role:", profile?.role);
+        if (session?.user) {
+          // الجلسة موجودة → وجّه المستخدم مباشرة لصفحته
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('role')
+            .eq('id', session.user.id)
+            .maybeSingle();
 
-        // ⭐ التوجيه حسب الدور
-        if (profile?.role === "admin") {
-          navigate("/admin", { replace: true });
-        } else if (profile?.role === "teacher") {
-          navigate("/teacher", { replace: true });
-        } else if (profile?.role === "student") {
-          navigate("/dashboard", { replace: true });
-        } else {
-          console.warn("⚠️ [Login] Unknown role, staying on login page");
+          if (!mounted) return;
+
+          if (profile?.role === 'admin') {
+            navigate('/admin', { replace: true });
+            return;
+          } else if (profile?.role === 'teacher') {
+            navigate('/teacher', { replace: true });
+            return;
+          } else if (profile?.role === 'student') {
+            navigate('/dashboard', { replace: true });
+            return;
+          }
         }
+
+        // لا توجد جلسة → أظهر نموذج الدخول
+        setAuthChecking(false);
+      } catch (err) {
+        console.error('Session check error:', err);
+        if (mounted) setAuthChecking(false);
       }
-    } catch (err) {
-      console.error("❌ [Login] Session check error:", err);
-    }
-  };
+    };
 
-  checkExistingSession();
+    checkSession();
 
-  return () => { mounted = false; };
-}, [navigate]);
-  
+    return () => {
+      mounted = false;
+    };
+  }, [navigate]);
+
+  // ============================================================
+  // جلب بيانات الشريك
+  // ============================================================
   useEffect(() => {
     fetch('/partner.json')
       .then((res) => res.json())
@@ -97,6 +99,9 @@ useEffect(() => {
       });
   }, []);
 
+  // ============================================================
+  // اختصارات الدخول السري (Ctrl+Shift+T و رابط ?staff=1)
+  // ============================================================
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
 
@@ -291,7 +296,7 @@ useEffect(() => {
           role: 'student',
           branch: branch,
           phone: phone.trim(),
-          school: school, // ⭐ جديد
+          school: school,
         },
       ]);
 
@@ -364,6 +369,43 @@ useEffect(() => {
     }
   };
 
+  // ============================================================
+  // ⭐ شاشة تحميل قصيرة أثناء التحقق من الجلسة
+  // ============================================================
+  if (authChecking) {
+    return (
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(180deg, #e3effc 0%, #dbe8f7 40%, #e1eefb 100%)',
+        direction: 'rtl',
+        fontFamily: "'Cairo', sans-serif"
+      }}>
+        <div style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          gap: '16px'
+        }}>
+          <div style={{
+            width: '44px',
+            height: '44px',
+            border: '3px solid #e2e8f0',
+            borderTopColor: '#2575e6',
+            borderRadius: '50%',
+            animation: 'spin 0.8s linear infinite'
+          }} />
+          <p style={{ color: '#64748b', fontSize: '14px', margin: 0 }}>
+            جاري التحقق...
+          </p>
+        </div>
+        <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
+      </div>
+    );
+  }
+
   return (
     <div className="app-viewport">
       <div className="login-container">
@@ -391,8 +433,6 @@ useEffect(() => {
               منصة الاختبارات الالكترونية
             </span>
           </div>
-
-
 
           <div className="teacher-frame" onClick={handleLogoClick}>
             <img
@@ -542,7 +582,7 @@ useEffect(() => {
                   </select>
                 </div>
 
-                {/* ⭐ المدرسة / المركز التعليمي */}
+                {/* المدرسة / المركز التعليمي */}
                 <div className="form-group">
                   <div className="label-wrapper">
                     <svg className="field-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
