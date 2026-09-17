@@ -321,36 +321,75 @@ export default function AdminDashboard() {
   }, [studentSchoolFilter]);
 
   // ============================================================
-  // جلب الملف الشخصي للمدير (بعد التحقق من الجلسة)
+  // ⭐ التحقق من المصادقة مع onAuthStateChange (يحتفظ بالجلسة)
   // ============================================================
-  const fetchAdminProfile = useCallback(async () => {
-    try {
-      // ⭐ 1) جلب الجلسة من localStorage (سريع، بدون شبكة)
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+  useEffect(() => {
+    let mounted = true;
+    let initialCheckDone = false;
 
-      if (sessionError || !session) {
-        return null;
+    const verifyAdmin = async (session) => {
+      if (!mounted) return;
+
+      if (!session?.user) {
+        toast.error("انتهت الجلسة، يرجى تسجيل الدخول");
+        navigate("/login", { replace: true });
+        return;
       }
 
-      const user = session.user;
-      if (!user) return null;
+      try {
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("name, role")
+          .eq("id", session.user.id)
+          .maybeSingle();
 
-      // ⭐ 2) جلب الملف الشخصي
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("name, role")
-        .eq("id", user.id)
-        .maybeSingle();
+        if (!mounted) return;
 
-      if (profile) {
+        if (!profile || profile.role !== 'admin') {
+          toast.error("غير مصرح لك بالدخول");
+          await supabase.auth.signOut();
+          navigate("/login", { replace: true });
+          return;
+        }
+
         setAdminProfile(profile);
+        setAuthChecked(true);
+        initialCheckDone = true;
+      } catch (err) {
+        console.error("verifyAdmin error:", err);
+        if (mounted) navigate("/login", { replace: true });
       }
-      return profile;
-    } catch (err) {
-      console.error("fetchAdminProfile error:", err);
-      return null;
-    }
-  }, []);
+    };
+
+    // ⭐ 1) الاشتراك في تغيّر حالة المصادقة
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      async (event, session) => {
+        console.log("Auth event:", event);
+
+        if (event === "INITIAL_SESSION") {
+          await verifyAdmin(session);
+        } else if (event === "SIGNED_IN") {
+          if (!initialCheckDone) await verifyAdmin(session);
+        } else if (event === "SIGNED_OUT") {
+          if (mounted) navigate("/login", { replace: true });
+        }
+        // TOKEN_REFRESHED لا يحتاج إجراء
+      }
+    );
+
+    // ⭐ 2) Fallback: بعد 500ms إذا لم يصل INITIAL_SESSION
+    const fallbackTimer = setTimeout(async () => {
+      if (initialCheckDone || !mounted) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      await verifyAdmin(session);
+    }, 500);
+
+    return () => {
+      mounted = false;
+      clearTimeout(fallbackTimer);
+      subscription?.unsubscribe();
+    };
+  }, [navigate]);
 
   // ============================================================
   // الإحصائيات
@@ -959,52 +998,6 @@ export default function AdminDashboard() {
   );
 
   // ============================================================
-  // ⭐ التحقق من المصادقة مع getSession (يحتفظ بالجلسة)
-  // ============================================================
-  useEffect(() => {
-    const checkAdmin = async () => {
-      try {
-        // ⭐ 1) جلب الجلسة من localStorage
-        const { data: { session }, error: sessionError } = 
-          await supabase.auth.getSession();
-
-        if (sessionError || !session) {
-          toast.error("انتهت الجلسة، يرجى تسجيل الدخول");
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        const user = session.user;
-        if (!user) {
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        // ⭐ 2) جلب الملف الشخصي والتحقق من الدور
-        const { data: profile } = await supabase
-          .from("profiles")
-          .select("name, role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (!profile || profile.role !== 'admin') {
-          toast.error("غير مصرح لك بالدخول");
-          await supabase.auth.signOut();
-          navigate("/login", { replace: true });
-          return;
-        }
-
-        setAdminProfile(profile);
-        setAuthChecked(true);
-      } catch (err) {
-        console.error("Auth check error:", err);
-        navigate("/login", { replace: true });
-      }
-    };
-    checkAdmin();
-  }, [navigate]);
-
-  // ============================================================
   // تحميل البيانات بعد التحقق من الصلاحية + استعادة الحالة
   // ============================================================
   useEffect(() => {
@@ -1222,10 +1215,7 @@ export default function AdminDashboard() {
             onClick={() => {
               if (!showResults && batches.length === 0) fetchBatches();
               setShowResults(!showResults);
-              if (!showResults) {
-                // فتح: لا نغلق شيئاً
-              } else {
-                // إغلاق: نمسح الاختيارات
+              if (showResults) {
                 setSelectedBatch(null);
                 setSelectedBranchView(null);
               }
