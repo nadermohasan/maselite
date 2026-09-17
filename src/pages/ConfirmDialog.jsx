@@ -34,7 +34,7 @@ export default function ConfirmDialog({ isOpen, title, message, confirmText, can
           display: flex;
           align-items: center;
           justify-content: center;
-          z-index: 3000;
+          z-index: 100000; /* ⭐ أعلى من كل المودالات */
         }
 
         .confirm-modal {
@@ -47,6 +47,12 @@ export default function ConfirmDialog({ isOpen, title, message, confirmText, can
           direction: rtl;
           color: #1e293b;
           box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+          animation: confirmIn 0.2s ease-out;
+        }
+
+        @keyframes confirmIn {
+          from { opacity: 0; transform: scale(0.95) translateY(10px); }
+          to { opacity: 1; transform: scale(1) translateY(0); }
         }
 
         .confirm-header {
