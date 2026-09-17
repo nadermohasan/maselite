@@ -31,6 +31,59 @@ export default function Login() {
 
   const navigate = useNavigate();
 
+  // ⭐ التحقق من وجود جلسة سابقة عند فتح الصفحة
+useEffect(() => {
+  let mounted = true;
+
+  const checkExistingSession = async () => {
+    try {
+      console.log("🔍 [Login] Checking for existing session...");
+      
+      // ⭐ ننتظر قليلاً حتى تُقرأ الجلسة من localStorage
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      const { data: { session }, error: sessionError } = 
+        await supabase.auth.getSession();
+
+      console.log("🔍 [Login] Session:", session ? "EXISTS" : "NULL");
+      console.log("🔍 [Login] Error:", sessionError?.message || "none");
+
+      if (!mounted) return;
+
+      if (session?.user) {
+        console.log("✅ [Login] Session found, fetching profile...");
+        
+        const { data: profile } = await supabase
+          .from("profiles")
+          .select("role")
+          .eq("id", session.user.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        console.log("✅ [Login] Profile role:", profile?.role);
+
+        // ⭐ التوجيه حسب الدور
+        if (profile?.role === "admin") {
+          navigate("/admin", { replace: true });
+        } else if (profile?.role === "teacher") {
+          navigate("/teacher", { replace: true });
+        } else if (profile?.role === "student") {
+          navigate("/dashboard", { replace: true });
+        } else {
+          console.warn("⚠️ [Login] Unknown role, staying on login page");
+        }
+      }
+    } catch (err) {
+      console.error("❌ [Login] Session check error:", err);
+    }
+  };
+
+  checkExistingSession();
+
+  return () => { mounted = false; };
+}, [navigate]);
+  
   useEffect(() => {
     fetch('/partner.json')
       .then((res) => res.json())
