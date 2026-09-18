@@ -559,7 +559,7 @@ const StatusStyles = () => (
     }
 
     .whatsapp-title {
-      font-size: 1rem;
+      font-size: 12px;
       font-weight: 800;
       color: #ffffff;
       line-height: 1.3;
