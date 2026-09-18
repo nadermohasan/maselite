@@ -386,141 +386,156 @@ const fetchAdminProfile = useCallback(async () => {
   }, []);
 
   // ===== جلب نتائج الجلسة =====
-  const fetchBatchResults = useCallback(async (batchId, selectedBranch = null) => {
-    setResultsLoading(true);
-    setSelectedBranchView(selectedBranch);
-    try {
-      // ⭐ select school بدلاً من area_code
-      const { data: attempts, error: attemptsError } = await supabase
-        .from("attempts")
-        .select(`id, student_id, profiles!inner (name, branch, school)`)
-        .eq("batch_id", batchId);
+  // ===== جلب نتائج الجلسة =====
+const fetchBatchResults = useCallback(async (batchId, selectedBranch = null) => {
+  setResultsLoading(true);
+  setSelectedBranchView(selectedBranch);
+  try {
+    const { data: attempts, error: attemptsError } = await supabase
+      .from("attempts")
+      .select(`id, student_id, profiles!inner (name, branch, school)`)
+      .eq("batch_id", batchId);
 
-      if (attemptsError) throw attemptsError;
-      if (!attempts?.length) throw new Error("لا توجد محاولات في هذا الكشف");
+    if (attemptsError) throw attemptsError;
+    if (!attempts?.length) throw new Error("لا توجد محاولات في هذا الكشف");
 
-      const attemptIds = attempts.map(a => a.id);
+    const attemptIds = attempts.map(a => a.id);
 
-      const { data: resultsData, error: resultsError } = await supabase
-        .from("results")
-        .select(`id, score, student_id, subject_id, attempt_id, subjects!inner (id, name)`)
-        .in("attempt_id", attemptIds);
+    const { data: resultsData, error: resultsError } = await supabase
+      .from("results")
+      .select(`id, score, student_id, subject_id, attempt_id, subjects!inner (id, name)`)
+      .in("attempt_id", attemptIds);
 
-      if (resultsError) throw resultsError;
+    if (resultsError) throw resultsError;
 
-      if (!resultsData || resultsData.length === 0) {
-        toast.info("لا توجد نتائج محفوظة لهذا الكشف بعد");
-        setScientificResults({ subjects: [], students: [] });
-        setLiteraryResults({ subjects: [], students: [] });
-        setSelectedBatch(batchId);
-        setResultsLoading(false);
-        return;
-      }
-
-      const englishResults = resultsData.filter(r =>
-        r.subjects?.name?.includes(ENGLISH_SUBJECT_KEYWORD)
-      );
-
-      if (englishResults.length === 0) {
-        toast.info("لا توجد نتائج إنجليزية لهذا الكشف");
-        setScientificResults({ subjects: [], students: [] });
-        setLiteraryResults({ subjects: [], students: [] });
-        setSelectedBatch(batchId);
-        setResultsLoading(false);
-        return;
-      }
-
-      const uniqueSubjectIds = [...new Set(englishResults.map(r => r.subject_id))];
-      const subjectTotalMarksMap = new Map();
-
-      for (const subjectId of uniqueSubjectIds) {
-        const { data: questionsData } = await supabase
-          .from("questions").select("degree")
-          .eq("subject_id", subjectId).eq("is_active", true);
-
-        let totalDegree = 0;
-        if (questionsData && questionsData.length > 0) {
-          totalDegree = questionsData.reduce((sum, q) => sum + (q.degree || 0), 0);
-        }
-        if (totalDegree === 0) totalDegree = 40;
-        subjectTotalMarksMap.set(subjectId, totalDegree);
-      }
-
-      const attemptStudentMap = new Map();
-      attempts.forEach(attempt => {
-        attemptStudentMap.set(attempt.id, {
-          name: attempt.profiles?.name || "غير معروف",
-          branch: attempt.profiles?.branch || "",
-          school: attempt.profiles?.school || "", // ⭐ school بدلاً من areaCode
-        });
-      });
-
-      const allSubjectsSet = new Set();
-      const studentMap = new Map();
-
-      englishResults.forEach((result) => {
-        const studentId = result.student_id;
-        const attemptId = result.attempt_id;
-        const studentInfo = attemptStudentMap.get(attemptId);
-        if (!studentInfo) return;
-
-        const subjectId = result.subject_id;
-        const subjectName = result.subjects?.name;
-        if (!subjectName) return;
-
-        allSubjectsSet.add(subjectName);
-
-        const totalMarks = subjectTotalMarksMap.get(subjectId) || 40;
-        const studentScore = result.score;
-
-        if (!studentMap.has(studentId)) {
-          studentMap.set(studentId, {
-            studentId,
-            studentName: studentInfo.name,
-            branch: studentInfo.branch,
-            school: studentInfo.school, // ⭐
-            subjects: {}
-          });
-        }
-
-        const studentRecord = studentMap.get(studentId);
-        if (!studentRecord.subjects[subjectName]) {
-          studentRecord.subjects[subjectName] = { score: studentScore, totalMarks };
-        }
-      });
-
-      const subjectsList = Array.from(allSubjectsSet).sort();
-      const scientific = [];
-      const literary = [];
-
-      studentMap.forEach((student) => {
-        if (Object.keys(student.subjects).length === 0) return;
-        const row = {
-          studentName: student.studentName,
-          school: student.school, // ⭐
-          subjects: student.subjects
-        };
-        if (student.branch === "العلمي") scientific.push(row);
-        else if (student.branch === "الأدبي") literary.push(row);
-      });
-
-      scientific.sort((a, b) => a.studentName.localeCompare(b.studentName));
-      literary.sort((a, b) => a.studentName.localeCompare(b.studentName));
-
-      setScientificResults({ subjects: getBranchSubjects(subjectsList), students: scientific });
-      setLiteraryResults({ subjects: getBranchSubjects(subjectsList), students: literary });
-
-      setStudentFilter(""); setSubjectFilter(""); setSchoolFilter("");
+    if (!resultsData || resultsData.length === 0) {
+      toast.info("لا توجد نتائج محفوظة لهذا الكشف بعد");
+      setScientificResults({ subjects: [], students: [] });
+      setLiteraryResults({ subjects: [], students: [] });
       setSelectedBatch(batchId);
+      setResultsLoading(false);
+      return;
+    }
 
-      if (selectedBranch === 'scientific' || selectedBranch === 'literary') {
-        setSelectedBranchView(selectedBranch);
+    const englishResults = resultsData.filter(r =>
+      r.subjects?.name?.includes(ENGLISH_SUBJECT_KEYWORD)
+    );
+
+    if (englishResults.length === 0) {
+      toast.info("لا توجد نتائج إنجليزية لهذا الكشف");
+      setScientificResults({ subjects: [], students: [] });
+      setLiteraryResults({ subjects: [], students: [] });
+      setSelectedBatch(batchId);
+      setResultsLoading(false);
+      return;
+    }
+
+    // ============================================================
+    // ✅ التعديل: حساب مجموع الدرجات من attempt_questions
+    // لكل محاولة على حدة (مش من الأسئلة النشطة حالياً)
+    // ============================================================
+    const { data: attemptQuestionsData, error: aqError } = await supabase
+      .from("attempt_questions")
+      .select("attempt_id, subject_id, questions(degree)")
+      .in("attempt_id", attemptIds);
+
+    if (aqError) throw aqError;
+
+    // خريطة: attempt_id -> subject_id -> مجموع الدرجات
+    const attemptSubjectTotalMap = new Map();
+    (attemptQuestionsData || []).forEach((aq) => {
+      const degree = aq.questions?.degree || 0;
+      if (!attemptSubjectTotalMap.has(aq.attempt_id)) {
+        attemptSubjectTotalMap.set(aq.attempt_id, new Map());
       }
-    } catch (error) {
-      console.error("Error fetching batch results:", error);
-      toast.error("فشل جلب نتائج الكشف: " + error.message);
-    } finally { setResultsLoading(false); }
-  }, []);
+      const subjMap = attemptSubjectTotalMap.get(aq.attempt_id);
+      subjMap.set(aq.subject_id, (subjMap.get(aq.subject_id) || 0) + degree);
+    });
+
+    // دالة مساعدة: المجموع الخاص بمحاولة معينة في مادة معينة
+    const getTotalMarksForAttempt = (attemptId, subjectId) => {
+      const val = attemptSubjectTotalMap.get(attemptId)?.get(subjectId);
+      return val && val > 0 ? val : 40; // fallback فقط لو مفيش بيانات
+    };
+
+    const attemptStudentMap = new Map();
+    attempts.forEach(attempt => {
+      attemptStudentMap.set(attempt.id, {
+        name: attempt.profiles?.name || "غير معروف",
+        branch: attempt.profiles?.branch || "",
+        school: attempt.profiles?.school || "",
+      });
+    });
+
+    const allSubjectsSet = new Set();
+    const studentMap = new Map();
+
+    englishResults.forEach((result) => {
+      const studentId = result.student_id;
+      const attemptId = result.attempt_id;
+      const studentInfo = attemptStudentMap.get(attemptId);
+      if (!studentInfo) return;
+
+      const subjectId = result.subject_id;
+      const subjectName = result.subjects?.name;
+      if (!subjectName) return;
+
+      allSubjectsSet.add(subjectName);
+
+      // ✅ المجموع بقى خاص بالمحاولة نفسها
+      const totalMarks = getTotalMarksForAttempt(attemptId, subjectId);
+      const studentScore = result.score;
+
+      if (!studentMap.has(studentId)) {
+        studentMap.set(studentId, {
+          studentId,
+          studentName: studentInfo.name,
+          branch: studentInfo.branch,
+          school: studentInfo.school,
+          subjects: {}
+        });
+      }
+
+      const studentRecord = studentMap.get(studentId);
+      if (!studentRecord.subjects[subjectName]) {
+        studentRecord.subjects[subjectName] = { score: studentScore, totalMarks };
+      }
+    });
+
+    const subjectsList = Array.from(allSubjectsSet).sort();
+    const scientific = [];
+    const literary = [];
+
+    studentMap.forEach((student) => {
+      if (Object.keys(student.subjects).length === 0) return;
+      const row = {
+        studentName: student.studentName,
+        school: student.school,
+        subjects: student.subjects
+      };
+      if (student.branch === "العلمي") scientific.push(row);
+      else if (student.branch === "الأدبي") literary.push(row);
+    });
+
+    scientific.sort((a, b) => a.studentName.localeCompare(b.studentName));
+    literary.sort((a, b) => a.studentName.localeCompare(b.studentName));
+
+    setScientificResults({ subjects: getBranchSubjects(subjectsList), students: scientific });
+    setLiteraryResults({ subjects: getBranchSubjects(subjectsList), students: literary });
+
+    setStudentFilter(""); setSubjectFilter(""); setSchoolFilter("");
+    setSelectedBatch(batchId);
+
+    if (selectedBranch === 'scientific' || selectedBranch === 'literary') {
+      setSelectedBranchView(selectedBranch);
+    }
+  } catch (error) {
+    console.error("Error fetching batch results:", error);
+    toast.error("فشل جلب نتائج الكشف: " + error.message);
+  } finally {
+    setResultsLoading(false);
+  }
+}, []);
 
   const handleDeleteBatch = (batchId) => {
     setConfirmDialog({
