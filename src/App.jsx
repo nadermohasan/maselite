@@ -9,20 +9,18 @@ import QuizPage from './pages/QuizPage';
 import QuizResult from './pages/QuizResult';
 
 // ============================================================
-// ⚙️ إعدادات التواصل — عدّل هذه القيم حسب حاجتك
+// ⚙️ إعدادات التواصل
 // ============================================================
-const ADMIN_WHATSAPP = "972597780880"; // ⬅️ رقم الواتساب (بدون + أو 00)
-const ADMIN_PHONE_DISPLAY = "0597780880"; // ⬅️ للعرض
-const ADMIN_NAME = "أ. محمد أبو سليمان"; // ⬅️ اسم المسؤول
+const ADMIN_WHATSAPP = "972597780880";
+const ADMIN_PHONE_DISPLAY = "0597780880";
 
 /**
  * مكوّن إعادة التوجيه الذكي للطالب
  */
 const StudentRedirect = () => {
   const navigate = useNavigate();
-  const [status, setStatus] = useState("checking"); // ⭐ بدلاً من "loading"
+  const [status, setStatus] = useState("checking");
   const [studentName, setStudentName] = useState("");
-  const [studentInfo, setStudentInfo] = useState({ branch: "", school: "" });
 
   useEffect(() => {
     let isMounted = true;
@@ -37,16 +35,12 @@ const StudentRedirect = () => {
 
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role, name, branch, school')
+          .select('role, name')
           .eq('id', user.id)
           .maybeSingle();
 
         if (isMounted && profile) {
           setStudentName(profile.name || "");
-          setStudentInfo({
-            branch: profile.branch || "",
-            school: profile.school || "",
-          });
         }
 
         if (profile?.role === 'admin') {
@@ -98,28 +92,21 @@ const StudentRedirect = () => {
   };
 
   // ============================================================
-  // رقم واتساب مع رسالة جاهزة
+  // ⭐ رابط واتساب — بدون رسالة جاهزة
   // ============================================================
   const buildWhatsAppLink = () => {
-    const message = `السلام عليكم ${ADMIN_NAME}،
-أنا الطالب/ة: ${studentName || "غير معروف"}
-${studentInfo.branch ? `الفرع: ${studentInfo.branch}` : ""}
-${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
-
-أرغب في تفعيل محاولة اختبار اللغة الإنجليزية على حسابي، وشكراً لكم.`;
-
-    return `https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent(message)}`;
+    return `https://wa.me/${ADMIN_WHATSAPP}`;
   };
 
   // ============================================================
-  // ⭐ شاشة التحقق — لا شيء يظهر (خلفية body فقط)
+  // ⭐ شاشة التحقق — لا شيء يظهر
   // ============================================================
   if (status === "checking") {
     return null;
   }
 
   // ============================================================
-  // شاشة "لا توجد محاولة نشطة"
+  // شاشة "الاختبار غير متاح حالياً"
   // ============================================================
   if (status === "no_attempt") {
     return (
@@ -146,8 +133,8 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
             </p>
           )}
 
-          {/* العنوان */}
-          <h1 className="status-title">لم يتم تفعيل اختبارك بعد</h1>
+          {/* العنوان — مُعدَّل */}
+          <h1 className="status-title">الاختبار غير متاح حالياً</h1>
 
           {/* الرسالة */}
           <p className="status-message">
@@ -168,7 +155,7 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
               </svg>
             </span>
             <span className="whatsapp-content">
-              <span className="whatsapp-title">تواصل مع الإدارة عبر واتساب</span>
+              <span className="whatsapp-title">تواصل مع الاستاذ عبر واتساب</span>
               <span className="whatsapp-sub">{ADMIN_PHONE_DISPLAY} · رد سريع</span>
             </span>
             <span className="whatsapp-arrow">
@@ -193,7 +180,7 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
             </div>
             <div className="step-item">
               <span className="step-number">2</span>
-              <span className="step-text">أرسل الرسالة الجاهزة للإدارة</span>
+              <span className="step-text">تواصل مع الاستاذ لتفعيل الاختبار</span>
             </div>
             <div className="step-item">
               <span className="step-number">3</span>
@@ -261,7 +248,7 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
           </p>
 
           <a
-            href={`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent("السلام عليكم، مادة اللغة الإنجليزية غير متوفرة في حسابي على المنصة.")}`}
+            href={buildWhatsAppLink()}
             target="_blank"
             rel="noopener noreferrer"
             className="whatsapp-btn compact"
@@ -314,7 +301,7 @@ ${studentInfo.school ? `المركز: ${studentInfo.school}` : ""}
         </p>
 
         <a
-          href={`https://wa.me/${ADMIN_WHATSAPP}?text=${encodeURIComponent("السلام عليكم، واجهت مشكلة عند الدخول إلى المنصة.")}`}
+          href={buildWhatsAppLink()}
           target="_blank"
           rel="noopener noreferrer"
           className="whatsapp-btn compact"
@@ -367,7 +354,6 @@ const StatusStyles = () => (
       overflow: hidden;
     }
 
-    /* خلفيات دائرية */
     .status-bg-blob {
       position: absolute;
       border-radius: 50%;
@@ -392,7 +378,6 @@ const StatusStyles = () => (
       background: radial-gradient(circle, rgba(191, 219, 254, 0.35), transparent 70%);
     }
 
-    /* الكارد */
     .status-card {
       position: relative;
       z-index: 2;
@@ -414,7 +399,6 @@ const StatusStyles = () => (
       to { opacity: 1; transform: translateY(0); }
     }
 
-    /* أيقونة الحالة */
     .status-icon-wrapper {
       width: 84px;
       height: 84px;
@@ -459,7 +443,6 @@ const StatusStyles = () => (
       50% { transform: scale(1.08); opacity: 0.35; }
     }
 
-    /* الترحيب */
     .status-greeting {
       font-size: 0.95rem;
       color: #64748b;
@@ -472,7 +455,6 @@ const StatusStyles = () => (
       font-weight: 800;
     }
 
-    /* العنوان */
     .status-title {
       font-size: 1.5rem;
       font-weight: 900;
@@ -482,7 +464,6 @@ const StatusStyles = () => (
       letter-spacing: -0.4px;
     }
 
-    /* الرسالة */
     .status-message {
       font-size: 0.95rem;
       color: #64748b;
@@ -491,7 +472,6 @@ const StatusStyles = () => (
       font-weight: 500;
     }
 
-    /* زر واتساب */
     .whatsapp-btn {
       display: flex;
       align-items: center;
@@ -605,7 +585,6 @@ const StatusStyles = () => (
       transform: translateX(-4px);
     }
 
-    /* الفاصل */
     .divider {
       display: flex;
       align-items: center;
@@ -626,7 +605,6 @@ const StatusStyles = () => (
       letter-spacing: 1px;
     }
 
-    /* الخطوات */
     .steps-list {
       display: flex;
       flex-direction: column;
@@ -664,7 +642,6 @@ const StatusStyles = () => (
       box-shadow: 0 3px 8px rgba(59, 130, 246, 0.25);
     }
 
-    /* الأزرار الثانوية */
     .status-actions {
       display: flex;
       gap: 10px;
@@ -712,7 +689,6 @@ const StatusStyles = () => (
       color: #1e293b;
     }
 
-    /* Responsive */
     @media (max-width: 480px) {
       .status-card { padding: 32px 22px 26px; border-radius: 24px; }
       .status-icon-wrapper { width: 72px; height: 72px; border-radius: 22px; }
