@@ -155,8 +155,8 @@ const StudentRedirect = () => {
               </svg>
             </span>
             <span className="whatsapp-content">
-              <span className="whatsapp-title">تواصل مع الاستاذ عبر واتساب</span>
-              <span className="whatsapp-sub">{ADMIN_PHONE_DISPLAY} · رد سريع</span>
+              <span className="whatsapp-title">تواصل مع المعلم</span>
+              <span className="whatsapp-sub">{ADMIN_PHONE_DISPLAY} · أ. محمد أبو سليمان</span>
             </span>
             <span className="whatsapp-arrow">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" width="16" height="16">
